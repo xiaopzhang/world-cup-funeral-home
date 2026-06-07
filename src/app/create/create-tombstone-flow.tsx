@@ -1,0 +1,319 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, ArrowRight, Check, ScrollText } from "lucide-react";
+import {
+  genericCauses,
+  getCauseOptions,
+  getPlayableTeams,
+  italyCauses,
+  italyDeathMatch,
+  italyEpitaphs,
+  teams,
+} from "@/lib/seed-data";
+import { cleanSignature, validateUserText } from "@/lib/validation";
+import { Button, LinkButton } from "@/components/ui";
+
+const steps = ["Choose Team", "Death Match", "Cause", "Epitaph", "Preview"];
+
+export function CreateTombstoneFlow() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialTeam = searchParams.get("team") ?? "italy";
+  const [step, setStep] = useState(0);
+  const [teamSlug, setTeamSlug] = useState(initialTeam);
+  const [cause, setCause] = useState(getCauseOptions(initialTeam)[0]);
+  const [customCause, setCustomCause] = useState("");
+  const [epitaph, setEpitaph] = useState(italyEpitaphs[0]);
+  const [customEpitaph, setCustomEpitaph] = useState("");
+  const [buriedBy, setBuriedBy] = useState("");
+  const [error, setError] = useState("");
+  const [publishing, setPublishing] = useState(false);
+
+  const selectedTeam = useMemo(
+    () => teams.find((team) => team.slug === teamSlug) ?? teams.find((team) => team.slug === "italy")!,
+    [teamSlug],
+  );
+  const finalCause = customCause.trim() || cause;
+  const finalEpitaph = customEpitaph.trim() || epitaph;
+  const finalBuriedBy = cleanSignature(buriedBy);
+  const playableTeams = getPlayableTeams();
+
+  function validateCurrentStep() {
+    setError("");
+    if (!selectedTeam.isPlayable) {
+      setError("This team is still alive. Funeral paperwork is not accepted yet.");
+      return false;
+    }
+
+    const checks =
+      step === 2
+        ? [validateUserText(finalCause, 80)]
+        : step === 3
+          ? [validateUserText(finalEpitaph, 120), validateUserText(buriedBy, 30)]
+          : [];
+
+    const failed = checks.find((check) => !check.ok);
+    if (failed && !failed.ok) {
+      setError(failed.message);
+      return false;
+    }
+    return true;
+  }
+
+  function next() {
+    if (validateCurrentStep()) {
+      setStep((value) => Math.min(value + 1, steps.length - 1));
+    }
+  }
+
+  async function publish() {
+    if (!validateCurrentStep()) return;
+    setPublishing(true);
+    setError("");
+    const response = await fetch("/api/tombstones", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        teamSlug,
+        causeOfDeath: finalCause,
+        epitaph: finalEpitaph,
+        buriedBy,
+      }),
+    });
+    const payload = await response.json();
+    setPublishing(false);
+
+    if (!response.ok) {
+      setError(payload.message ?? "Unable to publish tombstone.");
+      return;
+    }
+
+    router.push(`/tombstone/${payload.tombstone.shareSlug}?published=1`);
+  }
+
+  return (
+    <div>
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-semibold">Build a Tombstone</h1>
+          <p className="mt-3 text-[var(--muted)]">
+            Choose a fallen team. Confirm the death match. Pick the cause. Carve the epitaph. Sign the stone.
+          </p>
+        </div>
+        <LinkButton href="/" variant="secondary">
+          Back to Team Wall
+        </LinkButton>
+      </div>
+
+      <div className="mb-8 grid gap-2 sm:grid-cols-5">
+        {steps.map((label, index) => (
+          <button
+            key={label}
+            className={`rounded-sm border px-3 py-3 text-left text-sm ${
+              index === step
+                ? "border-[var(--gold)] bg-[var(--gold)]/12 text-[var(--gold)]"
+                : index < step
+                  ? "border-white/15 bg-white/8 text-white"
+                  : "border-white/10 bg-white/[0.03] text-[var(--muted)]"
+            }`}
+            onClick={() => setStep(index)}
+          >
+            <span className="block font-mono text-xs">0{index + 1}</span>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <section className="stone-panel rounded-md p-5 sm:p-8">
+        {step === 0 && (
+          <div>
+            <h2 className="text-2xl font-semibold">Choose Team</h2>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {playableTeams.map((team) => (
+                  <button
+                    key={team.slug}
+                    className={`rounded-md border p-4 text-left transition ${
+                      teamSlug === team.slug ? "border-[var(--gold)] bg-[var(--gold)]/10" : "border-white/10 bg-white/[0.03]"
+                    }`}
+                    onClick={() => setTeamSlug(team.slug)}
+                  >
+                    <img
+                      className={`h-12 w-16 rounded-sm object-cover ${team.isPlayable ? "" : "flag-dead"}`}
+                      src={team.flagUrl}
+                      alt={`${team.name} flag`}
+                    />
+                    <h3 className="mt-4 text-xl font-semibold">{team.name}</h3>
+                    <p className="mt-2 text-sm text-[var(--muted)]">
+                      {team.isPlayable
+                        ? "Early Admission. The Funeral Home is open."
+                        : "This team is still alive. Funeral paperwork is not accepted yet."}
+                    </p>
+                  </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {step === 1 && (
+          <div>
+            <h2 className="text-2xl font-semibold">Confirm Death Match</h2>
+            <div className="mt-6 rounded-md border border-white/10 bg-black/20 p-6">
+              <p className="text-lg leading-8">{italyDeathMatch.displayText}</p>
+              <p className="mt-4 text-[var(--gold)]">{italyDeathMatch.broadcastText}</p>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div>
+            <h2 className="text-2xl font-semibold">Choose a Cause of Death</h2>
+            <p className="mt-2 text-[var(--muted)]">Pick one from the official paperwork, or write your own.</p>
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                Generic Causes
+              </h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {genericCauses.map((item) => (
+                  <button
+                    key={item}
+                    className={`rounded-sm border p-4 text-left text-sm ${
+                      cause === item && !customCause
+                        ? "border-[var(--gold)] bg-[var(--gold)]/10"
+                        : "border-white/10 bg-white/[0.03]"
+                    }`}
+                    onClick={() => {
+                      setCause(item);
+                      setCustomCause("");
+                    }}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-7">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
+                Italy Paperwork
+              </h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {italyCauses.map((item) => (
+                  <button
+                    key={item}
+                    className={`rounded-sm border p-4 text-left text-sm ${
+                      cause === item && !customCause
+                        ? "border-[var(--gold)] bg-[var(--gold)]/10"
+                        : "border-white/10 bg-white/[0.03]"
+                    }`}
+                    onClick={() => {
+                      setCause(item);
+                      setCustomCause("");
+                    }}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <input
+              className="mt-5 w-full rounded-sm border border-white/10 bg-black/25 px-4 py-3 outline-none focus:border-[var(--gold)]"
+              maxLength={80}
+              placeholder="Write a more painful cause of death..."
+              value={customCause}
+              onChange={(event) => setCustomCause(event.target.value)}
+            />
+            <p className="mt-2 text-sm text-[var(--muted)]">Be funny. Be cruel to the football. Not to real people.</p>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div>
+            <h2 className="text-2xl font-semibold">Choose an Epitaph</h2>
+            <p className="mt-2 text-[var(--muted)]">Pick a final line, or carve your own.</p>
+            <div className="mt-6 grid gap-3">
+              {italyEpitaphs.map((item) => (
+                <button
+                  key={item}
+                  className={`rounded-sm border p-4 text-left ${
+                    epitaph === item && !customEpitaph
+                      ? "border-[var(--gold)] bg-[var(--gold)]/10"
+                      : "border-white/10 bg-white/[0.03]"
+                  }`}
+                  onClick={() => {
+                    setEpitaph(item);
+                    setCustomEpitaph("");
+                  }}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+            <textarea
+              className="mt-5 min-h-28 w-full rounded-sm border border-white/10 bg-black/25 px-4 py-3 outline-none focus:border-[var(--gold)]"
+              maxLength={120}
+              placeholder="Write the final line this team deserves..."
+              value={customEpitaph}
+              onChange={(event) => setCustomEpitaph(event.target.value)}
+            />
+            <input
+              className="mt-5 w-full rounded-sm border border-white/10 bg-black/25 px-4 py-3 outline-none focus:border-[var(--gold)]"
+              maxLength={30}
+              placeholder="Your name, nickname, or “Anonymous Fan”"
+              value={buriedBy}
+              onChange={(event) => setBuriedBy(event.target.value)}
+            />
+            <p className="mt-2 text-sm text-[var(--muted)]">Keep it about football trauma. Don’t attack real people.</p>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div>
+            <h2 className="text-2xl font-semibold">Preview Tombstone</h2>
+            <div className="realistic-tombstone-scene mt-8">
+              <div className="realistic-tombstone">
+                <div className="realistic-tombstone-content">
+                  <img
+                    className="realistic-tombstone-flag"
+                    src={selectedTeam.flagUrl}
+                    alt={`${selectedTeam.name} flag`}
+                  />
+                  <p className="engraved-label mt-6">In Loving Memory of</p>
+                  <h3 className="engraved-name mt-3">{selectedTeam.name}</h3>
+                  <div className="engraved-rule" />
+                  <p className="engraved-label">Cause of Death</p>
+                  <p className="engraved-copy mt-2 text-xl font-bold">{finalCause}</p>
+                  <p className="engraved-copy mt-7 text-2xl font-semibold leading-8">“{finalEpitaph}”</p>
+                  <p className="engraved-label mt-7">Buried by: {finalBuriedBy}</p>
+                </div>
+              </div>
+              <div className="tombstone-base" />
+            </div>
+          </div>
+        )}
+
+        {error && <p className="mt-6 rounded-sm border border-[var(--red)]/50 bg-[var(--red)]/15 p-3 text-sm text-red-100">{error}</p>}
+
+        <div className="mt-8 flex flex-col justify-between gap-3 sm:flex-row">
+          <Button variant="secondary" disabled={step === 0} onClick={() => setStep((value) => Math.max(value - 1, 0))}>
+            <ArrowLeft size={16} /> Edit
+          </Button>
+          {step < steps.length - 1 ? (
+            <Button onClick={next}>
+              Continue <ArrowRight size={16} />
+            </Button>
+          ) : (
+            <Button onClick={publish} disabled={publishing}>
+              {publishing ? "Publishing..." : "Publish Tombstone"} <Check size={16} />
+            </Button>
+          )}
+        </div>
+      </section>
+
+      <div className="mt-6 flex items-center gap-2 text-sm text-[var(--muted)]">
+        <ScrollText size={16} />
+        No links. No hate speech. No attacks on real people. Just football pain in a nice stone jacket.
+      </div>
+    </div>
+  );
+}
