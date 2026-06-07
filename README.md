@@ -24,7 +24,7 @@ Run `supabase/schema.sql` and `supabase/seed.sql` before enabling production tra
 
 ## World Cup Sync
 
-Vercel Cron calls `/api/cron/sync-world-cup` every 30 minutes. When `CRON_SECRET` is configured in Vercel, Cron sends `Authorization: Bearer <CRON_SECRET>`. Manual sync is also possible with:
+Vercel Cron calls `/api/cron/sync-world-cup` daily by default because the current Vercel Hobby plan only allows daily cron jobs. During the World Cup, upgrade to Vercel Pro and change `vercel.json` to `*/30 * * * *`, or use an external scheduler to call the same endpoint every 30 minutes. When `CRON_SECRET` is configured in Vercel, Cron sends `Authorization: Bearer <CRON_SECRET>`. Manual sync is also possible with:
 
 ```bash
 curl -X POST \
