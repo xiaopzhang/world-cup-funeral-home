@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
-import { getActivityFeed } from "@/lib/demo-store";
+import { getActivityFeed } from "@/lib/repository";
 import {
   absoluteUrl,
   pageMetadata,
@@ -19,8 +19,8 @@ export const metadata: Metadata = pageMetadata({
   path: "/feed",
 });
 
-export default function FeedPage() {
-  const activity = getActivityFeed();
+export default async function FeedPage() {
+  const activity = await getActivityFeed();
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",

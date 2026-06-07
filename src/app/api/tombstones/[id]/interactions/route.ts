@@ -1,4 +1,8 @@
-import { getTombstoneDetails, interactWithTombstone } from "@/lib/demo-store";
+import {
+  enforceRateLimit,
+  getTombstoneDetails,
+  interactWithTombstone,
+} from "@/lib/repository";
 import type { InteractionType } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +14,9 @@ export async function POST(
   try {
     const { id } = await context.params;
     const body = (await request.json()) as { interactionType: InteractionType };
-    interactWithTombstone(id, body.interactionType);
-    return Response.json(getTombstoneDetails(id));
+    await enforceRateLimit("ritual", request);
+    await interactWithTombstone(id, body.interactionType);
+    return Response.json(await getTombstoneDetails(id));
   } catch (error) {
     return Response.json(
       { message: error instanceof Error ? error.message : "Unable to record ritual." },

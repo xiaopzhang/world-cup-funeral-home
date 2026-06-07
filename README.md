@@ -1,4 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# World Cup Funeral Home
+
+An English-only satirical football memorial app for creating and sharing tombstones for eliminated World Cup teams.
+
+## Production Stack
+
+- Next.js App Router, TypeScript, Tailwind CSS
+- Supabase Postgres for teams, tombstones, tributes, interactions, reports, sync logs, and audit events
+- Vercel Analytics and Vercel Cron
+- football-data.org v4 as the low-cost primary World Cup match provider
+
+## Environment Variables
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+FOOTBALL_DATA_API_TOKEN=
+ADMIN_PASSWORD=
+CRON_SECRET=
+```
+
+Run `supabase/schema.sql` and `supabase/seed.sql` before enabling production traffic. Without Supabase env vars, the app falls back to local demo data so development preview still works.
+
+## World Cup Sync
+
+Vercel Cron calls `/api/cron/sync-world-cup` every 30 minutes. When `CRON_SECRET` is configured in Vercel, Cron sends `Authorization: Bearer <CRON_SECRET>`. Manual sync is also possible with:
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  https://world-cup-funeral-home.tickletickle.space/api/cron/sync-world-cup
+```
+
+The sync pipeline stores provider match summaries, records sync runs, applies deterministic elimination rules, and writes rollbackable team status events. If provider data is incomplete, the sync run records an error instead of publishing a guessed status.
+
+## Admin
+
+Visit `/admin` and enter `ADMIN_PASSWORD` to inspect team status, sync runs, reports, and status events. Admin API endpoints require the same password in `x-admin-password`.
 
 ## Getting Started
 

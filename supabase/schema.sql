@@ -28,6 +28,8 @@ create table if not exists public.matches (
   loser_team_id text,
   status text not null default 'final',
   source text not null,
+  display_text text,
+  broadcast_text text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -112,7 +114,77 @@ create table if not exists public.activity_feed (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.team_aliases (
+  id text primary key,
+  team_id text not null references public.teams(id),
+  provider text not null,
+  provider_team_id text,
+  provider_team_name text not null,
+  created_at timestamptz not null default now(),
+  unique (provider, provider_team_name)
+);
+
+create table if not exists public.sync_runs (
+  id text primary key,
+  provider text not null,
+  status text not null check (status in ('running', 'success', 'error')),
+  started_at timestamptz not null default now(),
+  finished_at timestamptz,
+  processed_count integer not null default 0,
+  changed_count integer not null default 0,
+  error_message text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.provider_matches (
+  id text primary key,
+  provider text not null,
+  provider_match_id text not null unique,
+  stage text,
+  match_date date,
+  raw_hash text not null,
+  payload_summary jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.team_status_events (
+  id text primary key,
+  team_id text not null references public.teams(id),
+  provider_match_id text,
+  from_status text not null,
+  to_status text not null,
+  reason text not null,
+  source text not null,
+  rolled_back_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.reports (
+  id text primary key,
+  target_type text not null check (target_type in ('tombstone', 'tribute')),
+  target_id text not null,
+  reason text not null,
+  status text not null default 'open' check (status in ('open', 'reviewed', 'dismissed')),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.rate_limits (
+  id text primary key,
+  action text not null,
+  subject_hash text not null,
+  window_start timestamptz not null,
+  count integer not null default 1,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (action, subject_hash, window_start)
+);
+
 create index if not exists tombstones_team_id_idx on public.tombstones(team_id);
 create index if not exists interactions_tombstone_id_idx on public.interactions(tombstone_id);
 create index if not exists tributes_team_id_idx on public.tributes(team_id);
 create index if not exists activity_feed_created_at_idx on public.activity_feed(created_at desc);
+create index if not exists provider_matches_provider_match_id_idx on public.provider_matches(provider_match_id);
+create index if not exists sync_runs_created_at_idx on public.sync_runs(created_at desc);
+create index if not exists reports_created_at_idx on public.reports(created_at desc);
+create index if not exists team_status_events_created_at_idx on public.team_status_events(created_at desc);

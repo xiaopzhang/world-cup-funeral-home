@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
-import { getHomeSnapshot } from "@/lib/demo-store";
+import { getHomeSnapshot } from "@/lib/repository";
 import { absoluteUrl } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
-  const tombstones = getHomeSnapshot().latestTombstones.map((tombstone) => ({
+  const tombstones = (await getHomeSnapshot()).latestTombstones.map((tombstone) => ({
     url: absoluteUrl(`/tombstone/${tombstone.shareSlug}`),
     lastModified: new Date(tombstone.createdAt),
     changeFrequency: "daily" as const,

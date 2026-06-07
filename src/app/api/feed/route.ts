@@ -1,7 +1,7 @@
-import { getActivityFeed } from "@/lib/demo-store";
+import { getActivityFeed } from "@/lib/repository";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return Response.json({ activity: getActivityFeed() });
+  return Response.json({ activity: await getActivityFeed() });
 }

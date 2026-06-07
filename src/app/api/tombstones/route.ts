@@ -1,11 +1,12 @@
-import { createTombstoneRecord } from "@/lib/demo-store";
+import { createTombstoneRecord, enforceRateLimit } from "@/lib/repository";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const tombstone = createTombstoneRecord(body);
+    await enforceRateLimit("create_tombstone", request);
+    const tombstone = await createTombstoneRecord(body);
     return Response.json({ tombstone }, { status: 201 });
   } catch (error) {
     return Response.json(

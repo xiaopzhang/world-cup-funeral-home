@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { pageMetadata } from "@/lib/seo";
+import { getCreateOptions } from "@/lib/repository";
 import { CreateTombstoneFlow } from "./create-tombstone-flow";
 
 export const metadata: Metadata = pageMetadata({
@@ -11,13 +12,15 @@ export const metadata: Metadata = pageMetadata({
   path: "/create",
 });
 
-export default function CreatePage() {
+export default async function CreatePage() {
+  const createOptions = await getCreateOptions();
+
   return (
     <>
       <SiteHeader />
       <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <Suspense fallback={<div className="stone-panel rounded-md p-8">Loading funeral paperwork...</div>}>
-          <CreateTombstoneFlow />
+          <CreateTombstoneFlow playableTeams={createOptions.teams} deathMatches={createOptions.matches} />
         </Suspense>
       </main>
     </>

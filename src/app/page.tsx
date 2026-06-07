@@ -1,5 +1,5 @@
 import { Activity, Flower2, Flame, ScrollText } from "lucide-react";
-import { getHomeSnapshot } from "@/lib/demo-store";
+import { getHomeSnapshot } from "@/lib/repository";
 import { teams as seededTeams } from "@/lib/seed-data";
 import { SiteHeader } from "@/components/site-header";
 import { TeamCard } from "@/components/team-card";
@@ -9,8 +9,8 @@ import { serializeJsonLd, websiteJsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export default function Home() {
-  const snapshot = getHomeSnapshot();
+export default async function Home() {
+  const snapshot = await getHomeSnapshot();
   const italy = snapshot.teams.find((team) => team.slug === "italy")!;
   const latest = snapshot.latestTombstones;
   const jsonLd = {

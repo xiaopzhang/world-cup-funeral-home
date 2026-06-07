@@ -1,4 +1,4 @@
-import { getTombstoneDetails } from "@/lib/demo-store";
+import { getTombstoneDetails } from "@/lib/repository";
 
 export const dynamic = "force-dynamic";
 
@@ -7,7 +7,7 @@ export async function GET(
   context: RouteContext<"/api/tombstones/[id]">,
 ) {
   const { id } = await context.params;
-  const details = getTombstoneDetails(id);
+  const details = await getTombstoneDetails(id);
 
   if (!details) {
     return Response.json({ message: "Tombstone not found." }, { status: 404 });

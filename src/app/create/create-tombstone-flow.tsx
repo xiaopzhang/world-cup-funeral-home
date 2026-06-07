@@ -6,21 +6,30 @@ import { ArrowLeft, ArrowRight, Check, ScrollText } from "lucide-react";
 import {
   genericCauses,
   getCauseOptions,
-  getPlayableTeams,
   italyCauses,
   italyDeathMatch,
   italyEpitaphs,
-  teams,
 } from "@/lib/seed-data";
+import type { Team } from "@/lib/types";
+import type { Match } from "@/lib/types";
 import { cleanSignature, validateUserText } from "@/lib/validation";
 import { Button, LinkButton } from "@/components/ui";
 
 const steps = ["Choose Team", "Death Match", "Cause", "Epitaph", "Preview"];
 
-export function CreateTombstoneFlow() {
+export function CreateTombstoneFlow({
+  playableTeams,
+  deathMatches,
+}: {
+  playableTeams: Team[];
+  deathMatches: Match[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTeam = searchParams.get("team") ?? "italy";
+  const fallbackTeam = playableTeams[0]?.slug ?? "italy";
+  const requestedTeam = searchParams.get("team") ?? fallbackTeam;
+  const initialTeam =
+    playableTeams.some((team) => team.slug === requestedTeam) ? requestedTeam : fallbackTeam;
   const [step, setStep] = useState(0);
   const [teamSlug, setTeamSlug] = useState(initialTeam);
   const [cause, setCause] = useState(getCauseOptions(initialTeam)[0]);
@@ -32,17 +41,18 @@ export function CreateTombstoneFlow() {
   const [publishing, setPublishing] = useState(false);
 
   const selectedTeam = useMemo(
-    () => teams.find((team) => team.slug === teamSlug) ?? teams.find((team) => team.slug === "italy")!,
-    [teamSlug],
+    () => playableTeams.find((team) => team.slug === teamSlug) ?? playableTeams[0],
+    [playableTeams, teamSlug],
   );
+  const selectedDeathMatch =
+    deathMatches.find((match) => match.id === selectedTeam?.deathMatchId) ?? italyDeathMatch;
   const finalCause = customCause.trim() || cause;
   const finalEpitaph = customEpitaph.trim() || epitaph;
   const finalBuriedBy = cleanSignature(buriedBy);
-  const playableTeams = getPlayableTeams();
 
   function validateCurrentStep() {
     setError("");
-    if (!selectedTeam.isPlayable) {
+    if (!selectedTeam?.isPlayable) {
       setError("This team is still alive. Funeral paperwork is not accepted yet.");
       return false;
     }
@@ -91,6 +101,22 @@ export function CreateTombstoneFlow() {
     }
 
     router.push(`/tombstone/${payload.tombstone.shareSlug}?published=1`);
+  }
+
+  if (!selectedTeam) {
+    return (
+      <div className="stone-panel rounded-md p-8 text-center">
+        <h1 className="text-3xl font-semibold">No team is ready for burial.</h1>
+        <p className="mt-3 text-[var(--muted)]">
+          The Funeral Home opens when a team has been eliminated.
+        </p>
+        <div className="mt-6">
+          <LinkButton href="/" variant="secondary">
+            Back to Team Wall
+          </LinkButton>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -146,9 +172,7 @@ export function CreateTombstoneFlow() {
                     />
                     <h3 className="mt-4 text-xl font-semibold">{team.name}</h3>
                     <p className="mt-2 text-sm text-[var(--muted)]">
-                      {team.isPlayable
-                        ? "Early Admission. The Funeral Home is open."
-                        : "This team is still alive. Funeral paperwork is not accepted yet."}
+                      The Funeral Home is open.
                     </p>
                   </button>
               ))}
@@ -160,8 +184,8 @@ export function CreateTombstoneFlow() {
           <div>
             <h2 className="text-2xl font-semibold">Confirm Death Match</h2>
             <div className="mt-6 rounded-md border border-white/10 bg-black/20 p-6">
-              <p className="text-lg leading-8">{italyDeathMatch.displayText}</p>
-              <p className="mt-4 text-[var(--gold)]">{italyDeathMatch.broadcastText}</p>
+              <p className="text-lg leading-8">{selectedDeathMatch.displayText}</p>
+              <p className="mt-4 text-[var(--gold)]">{selectedDeathMatch.broadcastText}</p>
             </div>
           </div>
         )}

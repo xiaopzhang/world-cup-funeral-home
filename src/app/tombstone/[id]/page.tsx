@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
-import { getTombstoneDetails } from "@/lib/demo-store";
+import { getTombstoneDetails } from "@/lib/repository";
 import {
   serializeJsonLd,
   tombstoneJsonLd,
@@ -19,7 +19,7 @@ export async function generateMetadata({
   params,
 }: TombstonePageProps): Promise<Metadata> {
   const { id } = await params;
-  const details = getTombstoneDetails(id);
+  const details = await getTombstoneDetails(id);
 
   if (!details) {
     return {
@@ -45,7 +45,7 @@ export default async function TombstonePage({
   params,
 }: TombstonePageProps) {
   const { id } = await params;
-  const details = getTombstoneDetails(id);
+  const details = await getTombstoneDetails(id);
 
   if (!details) {
     notFound();
