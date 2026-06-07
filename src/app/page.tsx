@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { TeamCard } from "@/components/team-card";
 import { TombstoneCard } from "@/components/tombstone-card";
 import { LinkButton, Section, Stat } from "@/components/ui";
+import { serializeJsonLd, websiteJsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,26 @@ export default function Home() {
   const snapshot = getHomeSnapshot();
   const italy = snapshot.teams.find((team) => team.slug === "italy")!;
   const latest = snapshot.latestTombstones;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      websiteJsonLd(),
+      {
+        "@type": "WebPage",
+        name: "World Cup Funeral Home",
+        description:
+          "Create and share satirical tombstones for eliminated World Cup teams.",
+        isPartOf: websiteJsonLd(),
+      },
+    ],
+  };
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+      />
       <SiteHeader />
       <main>
         <Section className="grid min-h-[calc(100vh-65px)] items-center gap-10 py-12 lg:grid-cols-[1.02fr_0.98fr] lg:py-16">

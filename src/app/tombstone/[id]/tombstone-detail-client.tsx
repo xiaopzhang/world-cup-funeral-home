@@ -14,9 +14,15 @@ const feedback: Record<InteractionType, string> = {
   incense: "Incense burned. May the football gods answer someday.",
 };
 
-export function TombstoneDetailClient({ id }: { id: string }) {
-  const [details, setDetails] = useState<TombstoneDetails | null>(null);
-  const [loading, setLoading] = useState(true);
+export function TombstoneDetailClient({
+  id,
+  initialDetails,
+}: {
+  id: string;
+  initialDetails: TombstoneDetails | null;
+}) {
+  const [details, setDetails] = useState<TombstoneDetails | null>(initialDetails);
+  const [loading, setLoading] = useState(!initialDetails);
   const [message, setMessage] = useState("");
   const [showShare, setShowShare] = useState(false);
   const [manualShareText, setManualShareText] = useState("");
@@ -28,13 +34,13 @@ export function TombstoneDetailClient({ id }: { id: string }) {
     fetch(`/api/tombstones/${id}`)
       .then((response) => response.json())
       .then((payload) => {
-        setDetails(payload.tombstone ? payload : null);
+        setDetails(payload.tombstone ? payload : initialDetails);
         setLoading(false);
         if (new URLSearchParams(window.location.search).has("published")) {
           setShowShare(true);
         }
       });
-  }, [id]);
+  }, [id, initialDetails]);
 
   async function ritual(interactionType: InteractionType) {
     const response = await fetch(`/api/tombstones/${id}/interactions`, {

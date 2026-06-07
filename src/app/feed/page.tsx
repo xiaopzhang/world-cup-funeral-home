@@ -1,14 +1,41 @@
+import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { getActivityFeed } from "@/lib/demo-store";
+import {
+  absoluteUrl,
+  pageMetadata,
+  serializeJsonLd,
+  siteName,
+  websiteJsonLd,
+} from "@/lib/seo";
 import { LinkButton, Section } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
+export const metadata: Metadata = pageMetadata({
+  title: "Latest Burials",
+  description:
+    "Browse the newest World Cup Funeral Home tombstones and pay respects to eliminated football teams.",
+  path: "/feed",
+});
+
 export default function FeedPage() {
   const activity = getActivityFeed();
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "Latest Burials",
+    url: absoluteUrl("/feed"),
+    isPartOf: websiteJsonLd(),
+    about: siteName,
+  };
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+      />
       <SiteHeader />
       <main>
         <Section className="py-12">

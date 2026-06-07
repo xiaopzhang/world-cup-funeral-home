@@ -1,6 +1,15 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SiteHeader } from "@/components/site-header";
+import { pageMetadata } from "@/lib/seo";
 import { CreateTombstoneFlow } from "./create-tombstone-flow";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Build a Tombstone",
+  description:
+    "Create a shareable World Cup Funeral Home tombstone for Italy and future eliminated football teams.",
+  path: "/create",
+});
 
 export default function CreatePage() {
   return (

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { defaultDescription, siteName, siteUrl } from "@/lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,9 +15,61 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "World Cup Funeral Home",
-  description:
-    "A funeral home for eliminated teams, broken dreams, and emotionally damaged football fans.",
+  metadataBase: new URL(siteUrl()),
+  applicationName: siteName,
+  title: {
+    default: siteName,
+    template: `%s | ${siteName}`,
+  },
+  description: defaultDescription,
+  keywords: [
+    "World Cup",
+    "football",
+    "soccer",
+    "fan memorial",
+    "World Cup 2026",
+    "Italy football",
+    "football satire",
+  ],
+  authors: [{ name: siteName }],
+  creator: siteName,
+  publisher: siteName,
+  category: "sports entertainment",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: siteName,
+    description: defaultDescription,
+    url: "/",
+    siteName,
+    type: "website",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: siteName,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteName,
+    description: defaultDescription,
+    images: ["/opengraph-image"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
 };
 
 export default function RootLayout({
