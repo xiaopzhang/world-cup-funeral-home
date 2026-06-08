@@ -79,6 +79,8 @@ export type Tribute = {
   createdAt: string;
   moderationStatus: "approved" | "pending" | "rejected";
   reportCount: number;
+  likeCount: number;
+  dislikeCount: number;
 };
 
 export type ActivityItem = {

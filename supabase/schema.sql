@@ -69,7 +69,20 @@ create table if not exists public.tributes (
   created_at timestamptz not null default now(),
   author_name text not null default 'Anonymous Fan',
   moderation_status text not null default 'approved',
-  report_count integer not null default 0
+  report_count integer not null default 0,
+  like_count integer not null default 0,
+  dislike_count integer not null default 0,
+  subject_hash text
+);
+
+create table if not exists public.tribute_votes (
+  id text primary key,
+  tribute_id text not null references public.tributes(id),
+  vote_type text not null check (vote_type in ('like', 'dislike')),
+  subject_hash text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (tribute_id, subject_hash)
 );
 
 create table if not exists public.cause_library (
@@ -183,8 +196,14 @@ create table if not exists public.rate_limits (
 create index if not exists tombstones_team_id_idx on public.tombstones(team_id);
 create index if not exists interactions_tombstone_id_idx on public.interactions(tombstone_id);
 create index if not exists tributes_team_id_idx on public.tributes(team_id);
+create index if not exists tribute_votes_tribute_id_idx on public.tribute_votes(tribute_id);
 create index if not exists activity_feed_created_at_idx on public.activity_feed(created_at desc);
 create index if not exists provider_matches_provider_match_id_idx on public.provider_matches(provider_match_id);
 create index if not exists sync_runs_created_at_idx on public.sync_runs(created_at desc);
 create index if not exists reports_created_at_idx on public.reports(created_at desc);
 create index if not exists team_status_events_created_at_idx on public.team_status_events(created_at desc);
+
+alter table public.tributes
+  add column if not exists like_count integer not null default 0,
+  add column if not exists dislike_count integer not null default 0,
+  add column if not exists subject_hash text;

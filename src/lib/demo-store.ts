@@ -216,6 +216,8 @@ export function leaveTribute(id: string, tributeText: string, authorName: string
     createdAt: now(),
     moderationStatus: "approved",
     reportCount: 0,
+    likeCount: 0,
+    dislikeCount: 0,
   };
   store.tributes.unshift(tribute);
   tombstone.tributeCount += 1;

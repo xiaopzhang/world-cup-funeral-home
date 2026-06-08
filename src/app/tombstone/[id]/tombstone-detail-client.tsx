@@ -2,10 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import { Flame, Flower2, Gift, MessageSquare, Share2, Sparkles } from "lucide-react";
+import {
+  Flame,
+  Flower2,
+  Gift,
+  MessageSquare,
+  Share2,
+  Sparkles,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react";
 import type { InteractionType, TombstoneDetails } from "@/lib/types";
 import { shareHooks } from "@/lib/seed-data";
 import { shareTombstone } from "@/lib/share";
+import {
+  sortTributesForDisplay,
+  tributeScore,
+  type TributeSortMode,
+  type TributeVoteType,
+} from "@/lib/tribute-engagement";
 import { Button, LinkButton, Stat } from "@/components/ui";
 
 const feedback: Record<InteractionType, string> = {
@@ -28,6 +43,8 @@ export function TombstoneDetailClient({
   const [manualShareText, setManualShareText] = useState("");
   const [tributeText, setTributeText] = useState("");
   const [authorName, setAuthorName] = useState("");
+  const [submittingTribute, setSubmittingTribute] = useState(false);
+  const [tributeSortMode, setTributeSortMode] = useState<TributeSortMode>("hot");
   const posterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,12 +76,15 @@ export function TombstoneDetailClient({
   }
 
   async function leaveTribute() {
+    if (submittingTribute) return;
+    setSubmittingTribute(true);
     const response = await fetch(`/api/tombstones/${id}/tributes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tributeText, authorName }),
     });
     const payload = await response.json();
+    setSubmittingTribute(false);
     if (response.ok) {
       setDetails(payload);
       setTributeText("");
@@ -74,6 +94,43 @@ export function TombstoneDetailClient({
     } else {
       setMessage(payload.message ?? "Tribute rejected by the paperwork desk.");
     }
+  }
+
+  async function voteTribute(tributeId: string, voteType: TributeVoteType) {
+    const response = await fetch(`/api/tributes/${tributeId}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ voteType }),
+    });
+    const payload = await response.json();
+    if (response.ok && payload.details) {
+      setDetails(payload.details);
+      setMessage(voteType === "like" ? "Tribute liked." : "Tribute disliked.");
+    } else {
+      setMessage(payload.message ?? "Vote rejected by the paperwork desk.");
+    }
+  }
+
+  async function reportContent(targetType: "tombstone" | "tribute", targetId: string) {
+    const reason = window.prompt(
+      targetType === "tombstone"
+        ? "Why should this tombstone be reviewed?"
+        : "Why should this tribute be reviewed?",
+      "Off-topic or inappropriate football funeral content",
+    );
+    if (!reason?.trim()) return;
+
+    const response = await fetch("/api/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetType, targetId, reason }),
+    });
+    const payload = await response.json();
+    setMessage(
+      response.ok
+        ? "Report received. The funeral desk will review it."
+        : payload.message ?? "Unable to receive report.",
+    );
   }
 
   async function copyShare() {
@@ -122,6 +179,7 @@ export function TombstoneDetailClient({
   }
 
   const { tombstone, team, deathMatch, tributes } = details;
+  const sortedTributes = sortTributesForDisplay(tributes, tributeSortMode);
 
   return (
     <main className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_0.85fr] lg:px-8">
@@ -166,6 +224,12 @@ export function TombstoneDetailClient({
         <Button className="mt-3 w-full" variant="secondary" onClick={downloadPoster}>
           <Gift size={17} /> Download Share Poster
         </Button>
+        <button
+          className="mt-3 text-xs text-[var(--muted)] underline underline-offset-4"
+          onClick={() => reportContent("tombstone", tombstone.id)}
+        >
+          Report this tombstone
+        </button>
         {message && <p className="mt-4 rounded-sm border border-white/10 bg-white/5 p-3 text-sm text-[var(--muted)]">{message}</p>}
         {manualShareText && (
           <div className="mt-3 rounded-sm border border-[var(--gold)]/35 bg-[var(--gold)]/10 p-3">
@@ -236,20 +300,59 @@ export function TombstoneDetailClient({
             onChange={(event) => setAuthorName(event.target.value)}
           />
           <p className="mt-2 text-xs text-[var(--muted)]">Keep it about football trauma. Don’t attack real people.</p>
-          <Button className="mt-4 w-full" onClick={leaveTribute} disabled={!tributeText.trim()}>
-            Leave a Tribute
+          <Button className="mt-4 w-full" onClick={leaveTribute} disabled={!tributeText.trim() || submittingTribute}>
+            {submittingTribute ? "Sending..." : "Leave a Tribute"}
           </Button>
         </div>
 
         <div className="stone-panel rounded-md p-5">
-          <h2 className="text-xl font-semibold">Tribute Wall</h2>
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <h2 className="text-xl font-semibold">Tribute Wall</h2>
+            <div className="grid grid-cols-2 rounded-sm border border-white/10 bg-black/20 p-1 text-xs">
+              {(["hot", "newest"] as TributeSortMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  className={`rounded-sm px-3 py-2 font-semibold uppercase tracking-[0.14em] ${
+                    tributeSortMode === mode
+                      ? "bg-[var(--gold)] text-[#14110d]"
+                      : "text-[var(--muted)]"
+                  }`}
+                  onClick={() => setTributeSortMode(mode)}
+                >
+                  {mode === "hot" ? "Hot" : "Newest"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="mt-4 space-y-3">
-            {tributes.length ? (
-              tributes.map((tribute) => (
+            {sortedTributes.length ? (
+              sortedTributes.map((tribute) => (
                 <div key={tribute.id} className="rounded-sm border border-white/10 bg-white/[0.03] p-3">
                   <p className="text-sm leading-6">“{tribute.tributeText}”</p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">By {tribute.authorName}</p>
-                  <button className="mt-2 text-xs text-[var(--muted)] underline underline-offset-4">Report</button>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">By {tribute.authorName}</p>
+                    <p className="font-mono text-xs text-[var(--muted)]">Score {tributeScore(tribute)}</p>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      className="inline-flex items-center gap-1 rounded-sm border border-white/10 bg-black/20 px-2 py-1 text-xs text-[var(--muted)] transition hover:text-[var(--foreground)]"
+                      onClick={() => voteTribute(tribute.id, "like")}
+                    >
+                      <ThumbsUp size={13} /> {tribute.likeCount}
+                    </button>
+                    <button
+                      className="inline-flex items-center gap-1 rounded-sm border border-white/10 bg-black/20 px-2 py-1 text-xs text-[var(--muted)] transition hover:text-[var(--foreground)]"
+                      onClick={() => voteTribute(tribute.id, "dislike")}
+                    >
+                      <ThumbsDown size={13} /> {tribute.dislikeCount}
+                    </button>
+                    <button
+                      className="px-2 py-1 text-xs text-[var(--muted)] underline underline-offset-4"
+                      onClick={() => reportContent("tribute", tribute.id)}
+                    >
+                      Report
+                    </button>
+                  </div>
                 </div>
               ))
             ) : (

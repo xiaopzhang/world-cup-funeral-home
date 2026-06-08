@@ -20,6 +20,11 @@ import {
   normalizeManualTeamStatusUpdate,
   type ManualStatusInput,
 } from "./admin-status";
+import {
+  applyTributeVote,
+  isDuplicateTributeSubmission,
+  type TributeVoteType,
+} from "./tribute-engagement";
 import { cleanSignature, validateUserText } from "./validation";
 import type {
   ActivityItem,
@@ -44,10 +49,13 @@ type ReportInput = {
   reason: string;
 };
 
+type AdminReportAction = "dismiss" | "hide_content";
+
 const rateLimitConfig = {
   create_tombstone: { limit: 8, windowMs: 60 * 60 * 1000 },
   ritual: { limit: 120, windowMs: 60 * 60 * 1000 },
   tribute: { limit: 20, windowMs: 60 * 60 * 1000 },
+  tribute_vote: { limit: 240, windowMs: 60 * 60 * 1000 },
   report: { limit: 20, windowMs: 60 * 60 * 1000 },
 } as const;
 
@@ -109,6 +117,9 @@ type DbTribute = {
   created_at: string;
   moderation_status: Tribute["moderationStatus"];
   report_count: number;
+  like_count?: number;
+  dislike_count?: number;
+  subject_hash?: string | null;
 };
 
 type DbActivity = {
@@ -120,6 +131,13 @@ type DbActivity = {
   interaction_type: InteractionType | null;
   display_text: string;
   created_at: string;
+};
+
+type DbTributeVote = {
+  id: string;
+  tribute_id: string;
+  vote_type: TributeVoteType;
+  subject_hash: string;
 };
 
 let serverClient: SupabaseClient | null = null;
@@ -153,6 +171,17 @@ function makeId(prefix: string) {
   return `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
 }
 
+function isMissingColumnError(error: unknown, columnName: string) {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { code?: string; message?: string };
+  const message = maybeError.message ?? "";
+  return message.includes(columnName) && (
+    maybeError.code === "42703" ||
+    message.includes("Could not find") ||
+    message.includes("schema cache")
+  );
+}
+
 function hashSubject(request: Request) {
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const realIp = request.headers.get("x-real-ip");
@@ -161,6 +190,10 @@ function hashSubject(request: Request) {
     .createHash("sha256")
     .update(`${forwardedFor ?? realIp ?? "unknown-ip"}|${userAgent}`)
     .digest("hex");
+}
+
+export function subjectHashForRequest(request: Request) {
+  return hashSubject(request);
 }
 
 export async function enforceRateLimit(
@@ -286,6 +319,8 @@ function tributeFromDb(row: DbTribute, teamsById: Map<string, Team>): Tribute {
     createdAt: row.created_at,
     moderationStatus: row.moderation_status,
     reportCount: row.report_count,
+    likeCount: row.like_count ?? 0,
+    dislikeCount: row.dislike_count ?? 0,
   };
 }
 
@@ -576,6 +611,7 @@ export async function leaveTribute(
   id: string,
   tributeText: string,
   authorName: string,
+  subjectHash?: string,
 ): Promise<Tribute> {
   const client = getServerClient();
   if (!client) return leaveDemoTribute(id, tributeText, authorName);
@@ -584,15 +620,58 @@ export async function leaveTribute(
   if (!validation.ok) throw new Error(validation.message);
   const details = await getTombstoneDetails(id);
   if (!details) throw new Error("Tombstone not found.");
+  const author = cleanSignature(authorName);
+
+  const { data: recentTributes, error: recentError } = await client
+    .from("tributes")
+    .select("tribute_text, author_name, created_at")
+    .eq("tombstone_id", details.tombstone.id)
+    .eq("subject_hash", subjectHash ?? "")
+    .order("created_at", { ascending: false })
+    .limit(8);
+  const canCheckSubjectDuplicates = !recentError;
+  if (recentError && !isMissingColumnError(recentError, "subject_hash")) throw recentError;
+
+  const isDuplicate =
+    canCheckSubjectDuplicates &&
+    ((recentTributes ?? []) as Pick<DbTribute, "tribute_text" | "author_name" | "created_at">[]).some(
+      (tribute) =>
+        isDuplicateTributeSubmission({
+          existingText: tribute.tribute_text,
+          existingAuthor: tribute.author_name,
+          existingCreatedAt: tribute.created_at,
+          nextText: tributeText,
+          nextAuthor: author,
+          now: new Date(),
+          windowMs: 90_000,
+        }),
+    );
+
+  if (isDuplicate) {
+    throw new Error("This tribute was already received. Give the paperwork a breath.");
+  }
 
   const tributeRow = {
     id: makeId("tri"),
     tombstone_id: details.tombstone.id,
     team_id: details.team.id,
     tribute_text: tributeText.trim(),
-    author_name: cleanSignature(authorName),
+    author_name: author,
+    subject_hash: subjectHash,
   };
-  const { data, error } = await client.from("tributes").insert(tributeRow).select("*").single();
+  let { data, error } = await client.from("tributes").insert(tributeRow).select("*").single();
+  if (error && isMissingColumnError(error, "subject_hash")) {
+    const legacyTributeRow = {
+      id: tributeRow.id,
+      tombstone_id: tributeRow.tombstone_id,
+      team_id: tributeRow.team_id,
+      tribute_text: tributeRow.tribute_text,
+      author_name: tributeRow.author_name,
+    };
+    const retry = await client.from("tributes").insert(legacyTributeRow).select("*").single();
+    data = retry.data;
+    error = retry.error;
+  }
   if (error || !data) throw new Error(error?.message ?? "Unable to receive tribute.");
 
   await client
@@ -609,6 +688,84 @@ export async function leaveTribute(
   });
 
   return tributeFromDb(data as DbTribute, new Map([[details.team.id, details.team]]));
+}
+
+export async function voteOnTribute({
+  tributeId,
+  voteType,
+  subjectHash,
+}: {
+  tributeId: string;
+  voteType: TributeVoteType;
+  subjectHash: string;
+}) {
+  const client = getServerClient();
+  if (!client) throw new Error("Supabase is required for tribute voting.");
+  if (voteType !== "like" && voteType !== "dislike") {
+    throw new Error("Unknown tribute vote.");
+  }
+
+  const { data: tributeRow, error: tributeError } = await client
+    .from("tributes")
+    .select("*")
+    .eq("id", tributeId)
+    .eq("moderation_status", "approved")
+    .single();
+  if (tributeError || !tributeRow) throw new Error("Tribute not found.");
+
+  const { data: existingVote, error: voteError } = await client
+    .from("tribute_votes")
+    .select("*")
+    .eq("tribute_id", tributeId)
+    .eq("subject_hash", subjectHash)
+    .maybeSingle();
+  if (voteError) throw voteError;
+
+  const nextCounts = applyTributeVote({
+    currentLikeCount: (tributeRow as DbTribute).like_count ?? 0,
+    currentDislikeCount: (tributeRow as DbTribute).dislike_count ?? 0,
+    previousVoteType: (existingVote as DbTributeVote | null)?.vote_type ?? null,
+    nextVoteType: voteType,
+  });
+
+  if (nextCounts.changed) {
+    await client.from("tribute_votes").upsert({
+      id: (existingVote as DbTributeVote | null)?.id ?? makeId("tv"),
+      tribute_id: tributeId,
+      vote_type: voteType,
+      subject_hash: subjectHash,
+      updated_at: now(),
+    });
+    const { error: updateError } = await client
+      .from("tributes")
+      .update({
+        like_count: nextCounts.likeCount,
+        dislike_count: nextCounts.dislikeCount,
+      })
+      .eq("id", tributeId);
+    if (updateError) throw updateError;
+  }
+
+  return {
+    tributeId,
+    likeCount: nextCounts.likeCount,
+    dislikeCount: nextCounts.dislikeCount,
+    changed: nextCounts.changed,
+  };
+}
+
+export async function getTombstoneDetailsByTributeId(tributeId: string) {
+  const client = getServerClient();
+  if (!client) return null;
+
+  const { data, error } = await client
+    .from("tributes")
+    .select("tombstone_id")
+    .eq("id", tributeId)
+    .maybeSingle();
+  if (error || !data) return null;
+
+  return getTombstoneDetails((data as { tombstone_id: string }).tombstone_id);
 }
 
 export async function getActivityFeed(): Promise<ActivityItem[]> {
@@ -646,7 +803,64 @@ export async function createReport(input: ReportInput) {
     .select("id")
     .single();
   if (error || !data) throw new Error(error?.message ?? "Unable to receive report.");
+
+  if (input.targetType === "tribute") {
+    const { data: tribute } = await client
+      .from("tributes")
+      .select("report_count")
+      .eq("id", input.targetId)
+      .maybeSingle();
+    if (tribute) {
+      await client
+        .from("tributes")
+        .update({ report_count: ((tribute as { report_count: number }).report_count ?? 0) + 1 })
+        .eq("id", input.targetId);
+    }
+  }
+
   return { id: data.id as string, status: "received" };
+}
+
+export async function handleAdminReport(reportId: string, action: AdminReportAction) {
+  const client = getServerClient();
+  if (!client) throw new Error("Supabase is required for report moderation.");
+  if (action !== "dismiss" && action !== "hide_content") {
+    throw new Error("Unknown report action.");
+  }
+
+  const { data: report, error } = await client
+    .from("reports")
+    .select("*")
+    .eq("id", reportId)
+    .single();
+  if (error || !report) throw new Error("Report not found.");
+
+  const reportRow = report as {
+    target_type: "tombstone" | "tribute";
+    target_id: string;
+  };
+
+  if (action === "hide_content") {
+    if (reportRow.target_type === "tribute") {
+      await client
+        .from("tributes")
+        .update({ moderation_status: "rejected" })
+        .eq("id", reportRow.target_id);
+    } else {
+      await client
+        .from("tombstones")
+        .update({ is_public: false, moderation_status: "rejected" })
+        .eq("id", reportRow.target_id);
+    }
+  }
+
+  const { error: updateError } = await client
+    .from("reports")
+    .update({ status: action === "dismiss" ? "dismissed" : "reviewed" })
+    .eq("id", reportId);
+  if (updateError) throw updateError;
+
+  return { ok: true, reportId, status: action === "dismiss" ? "dismissed" : "reviewed" };
 }
 
 export async function getAdminSnapshot() {
