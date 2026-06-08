@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { getAdminSnapshot } from "@/lib/repository";
 import { Section } from "@/components/ui";
+import { updateTeamStatusAction } from "./actions";
 
 type AdminPageProps = {
-  searchParams: Promise<{ password?: string }>;
+  searchParams: Promise<{ password?: string; updated?: string }>;
 };
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminPage({ searchParams }: AdminPageProps) {
-  const { password } = await searchParams;
+  const { password, updated } = await searchParams;
   const configuredPassword = process.env.ADMIN_PASSWORD;
   const authorized = Boolean(configuredPassword && password === configuredPassword);
 
@@ -86,20 +87,100 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             </div>
           )}
 
+          {updated && (
+            <div className="mt-6 rounded-md border border-[var(--green)]/40 bg-[var(--green)]/10 p-4 text-sm text-green-100">
+              Updated team status for <code>{updated}</code>.
+            </div>
+          )}
+
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
             <section className="stone-panel rounded-md p-5">
-              <h2 className="text-2xl font-semibold">Team Status</h2>
-              <div className="mt-4 max-h-[520px] space-y-2 overflow-auto pr-2">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-semibold">Team Status</h2>
+                  <p className="mt-2 text-sm text-[var(--muted)]">
+                    Manual overrides write an audit event and immediately affect public creation eligibility.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 max-h-[760px] space-y-4 overflow-auto pr-2">
                 {snapshot.teams.map((team) => (
-                  <div key={team.slug} className="flex items-center justify-between gap-3 border-b border-white/10 py-3">
-                    <div>
+                  <form
+                    key={team.slug}
+                    action={updateTeamStatusAction}
+                    className="rounded-sm border border-white/10 bg-black/20 p-4"
+                  >
+                    <input name="password" type="hidden" value={password} />
+                    <input name="slug" type="hidden" value={team.slug} />
+                    <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+                      <div className="min-w-0">
                       <p className="font-semibold">{team.name}</p>
                       <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
                         {team.status} · {team.isPlayable ? "playable" : "locked"}
                       </p>
+                        <code className="mt-1 block text-xs text-[var(--muted)]">{team.slug}</code>
+                      </div>
+                      <button className="min-h-10 rounded-sm bg-[var(--gold)] px-3 py-2 text-sm font-semibold text-[#14110d]">
+                        Save
+                      </button>
                     </div>
-                    <code className="text-xs text-[var(--muted)]">{team.slug}</code>
-                  </div>
+
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <label className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+                        Status
+                        <select
+                          className="mt-2 w-full rounded-sm border border-white/10 bg-[#151512] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--gold)]"
+                          name="status"
+                          defaultValue={team.status}
+                        >
+                          <option value="alive">Alive</option>
+                          <option value="eliminated">Eliminated</option>
+                          <option value="early_admission">Early Admission</option>
+                          <option value="champion">Champion</option>
+                          <option value="pending">Pending</option>
+                        </select>
+                      </label>
+
+                      <label className="flex items-end gap-2 rounded-sm border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
+                        <input
+                          className="size-4 accent-[var(--gold)]"
+                          name="isPlayable"
+                          type="checkbox"
+                          defaultChecked={team.isPlayable}
+                        />
+                        Open tombstone creation
+                      </label>
+
+                      <label className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+                        Eliminated at
+                        <input
+                          className="mt-2 w-full rounded-sm border border-white/10 bg-black/25 px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--gold)]"
+                          name="eliminatedAt"
+                          type="date"
+                          defaultValue={team.eliminatedAt?.slice(0, 10) ?? ""}
+                        />
+                      </label>
+
+                      <label className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+                        Death match id
+                        <input
+                          className="mt-2 w-full rounded-sm border border-white/10 bg-black/25 px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--gold)]"
+                          name="deathMatchId"
+                          placeholder="match_manual_team_2026"
+                          defaultValue={team.deathMatchId ?? ""}
+                        />
+                      </label>
+                    </div>
+
+                    <label className="mt-3 block text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+                      Audit reason
+                      <input
+                        className="mt-2 w-full rounded-sm border border-white/10 bg-black/25 px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--gold)]"
+                        name="reason"
+                        placeholder="Manual correction after checking official result"
+                      />
+                    </label>
+                  </form>
                 ))}
               </div>
             </section>

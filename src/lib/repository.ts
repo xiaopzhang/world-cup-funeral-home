@@ -16,6 +16,10 @@ import {
   fetchFootballDataWorldCupMatches,
   type NormalizedMatchEvent,
 } from "./world-cup-sync";
+import {
+  normalizeManualTeamStatusUpdate,
+  type ManualStatusInput,
+} from "./admin-status";
 import { cleanSignature, validateUserText } from "./validation";
 import type {
   ActivityItem,
@@ -700,6 +704,48 @@ export async function rollbackTeamStatus(teamSlug: string) {
     .eq("slug", teamSlug);
   if (error) throw error;
   return { ok: true };
+}
+
+export async function updateTeamStatusManually(
+  teamSlug: string,
+  input: ManualStatusInput,
+) {
+  const client = getServerClient();
+  if (!client) throw new Error("Supabase is required for admin status updates.");
+
+  const update = normalizeManualTeamStatusUpdate(input);
+  const { data: teamRow, error: teamError } = await client
+    .from("teams")
+    .select("*")
+    .eq("slug", teamSlug)
+    .single();
+  if (teamError || !teamRow) throw new Error("Unknown team.");
+
+  const team = teamFromDb(teamRow as DbTeam);
+  const { error } = await client
+    .from("teams")
+    .update({
+      status: update.status,
+      is_playable: update.isPlayable,
+      eliminated_at: update.eliminatedAt,
+      death_match_id: update.deathMatchId,
+      updated_at: now(),
+    })
+    .eq("slug", teamSlug);
+  if (error) throw error;
+
+  const { error: eventError } = await client.from("team_status_events").insert({
+    id: makeId("tse"),
+    team_id: team.id,
+    provider_match_id: update.deathMatchId,
+    from_status: team.status,
+    to_status: update.status,
+    reason: update.reason,
+    source: "manual_admin",
+  });
+  if (eventError) throw eventError;
+
+  return { ok: true, teamSlug, status: update.status, isPlayable: update.isPlayable };
 }
 
 export async function runWorldCupSync() {
