@@ -99,7 +99,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                 <div>
                   <h2 className="text-2xl font-semibold">Team Status</h2>
                   <p className="mt-2 text-sm text-[var(--muted)]">
-                    Manual overrides write an audit event and immediately affect public creation eligibility.
+                    Manual overrides immediately affect public creation eligibility.
                   </p>
                 </div>
               </div>
@@ -171,15 +171,6 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                         />
                       </label>
                     </div>
-
-                    <label className="mt-3 block text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
-                      Audit reason
-                      <input
-                        className="mt-2 w-full rounded-sm border border-white/10 bg-black/25 px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--gold)]"
-                        name="reason"
-                        placeholder="Manual correction after checking official result"
-                      />
-                    </label>
                   </form>
                 ))}
               </div>
