@@ -72,7 +72,7 @@ export function buildDeepSeekMemePayload(request: DeepSeekMemeRequest): ChatComp
       {
         role: "system",
         content:
-          "You write original English football satire for a World Cup funeral website. Return strict JSON only. Avoid slurs, hate, real-person insults, politics, links, hashtags, and copied memes. Every generated string must contain at least one football anchor word such as football, match, scoreboard, bracket, tournament, penalty, VAR, fans, flag, campaign, knockout, qualifier, goal, team, final whistle, or pitch.",
+          "You write original English football satire for a World Cup funeral website. Return strict JSON only. Avoid slurs, hate, real-person insults, politics, links, hashtags, and copied memes. Every generated string must include the exact word football.",
       },
       {
         role: "user",
@@ -87,7 +87,7 @@ export function buildDeepSeekMemePayload(request: DeepSeekMemeRequest): ChatComp
           hardRules: [
             "Every cause must be 80 characters or fewer.",
             "Every epitaph must be 120 characters or fewer.",
-            "Every line must include at least one football anchor word.",
+            "Every line must include the exact word football.",
             "Use team-level satire only. Do not insult named players, coaches, politicians, or protected groups.",
             "No links, hashtags, handles, profanity, or copied social posts.",
           ],
