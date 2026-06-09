@@ -1167,6 +1167,14 @@ function parsePositiveInt(value: string | undefined, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function ensureFootballAnchor(text: string, maxLength: number) {
+  const trimmed = text.trim();
+  if (/\bfootball\b/i.test(trimmed)) return trimmed;
+  const suffix = " football";
+  if (trimmed.length + suffix.length <= maxLength) return `${trimmed}${suffix}`;
+  return `${trimmed.slice(0, maxLength - suffix.length).trimEnd()}${suffix}`;
+}
+
 export async function deactivateContentItem(id: string, type: "cause" | "epitaph") {
   const client = getServerClient();
   if (!client) throw new Error("Supabase is required for content moderation.");
@@ -1224,8 +1232,8 @@ export async function runMemeContentSync(teamSlug?: string) {
         epitaphCount: maxItems,
       });
       const filtered = filterGeneratedLines({
-        causes: generated.causes,
-        epitaphs: generated.epitaphs,
+        causes: generated.causes.map((line) => ensureFootballAnchor(line, 80)),
+        epitaphs: generated.epitaphs.map((line) => ensureFootballAnchor(line, 120)),
         existingCauses: content.causes.map((cause) => cause.text),
         existingEpitaphs: content.epitaphs.map((epitaph) => epitaph.text),
       });
@@ -1416,3 +1424,7 @@ export async function runWorldCupSync() {
     throw error;
   }
 }
+
+export const repositoryInternals = {
+  ensureFootballAnchor,
+};
