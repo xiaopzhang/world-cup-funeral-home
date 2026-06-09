@@ -28,6 +28,14 @@ export function validateUserText(value: string, maxLength: number): ValidationRe
   return { ok: true };
 }
 
+export function validateRequiredSignature(value: string, maxLength: number): ValidationResult {
+  if (!value.trim()) {
+    return { ok: false, message: "Buried by is required." };
+  }
+
+  return validateUserText(value, maxLength);
+}
+
 export function cleanSignature(value: string): string {
   const cleaned = value.trim().replace(/\s+/g, " ");
   return (cleaned || "Anonymous Fan").slice(0, 30);

@@ -2,10 +2,20 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { getAdminSnapshot } from "@/lib/repository";
 import { Section } from "@/components/ui";
-import { handleReportAction, updateTeamStatusAction } from "./actions";
+import {
+  deactivateContentAction,
+  handleReportAction,
+  syncMemeContentAction,
+  updateTeamStatusAction,
+} from "./actions";
 
 type AdminPageProps = {
-  searchParams: Promise<{ password?: string; updated?: string; reportUpdated?: string }>;
+  searchParams: Promise<{
+    password?: string;
+    updated?: string;
+    reportUpdated?: string;
+    contentUpdated?: string;
+  }>;
 };
 
 export const dynamic = "force-dynamic";
@@ -46,6 +56,14 @@ type StatusEventRow = {
   created_at: string;
 };
 
+type ContentItemRow = {
+  id: string;
+  type: "cause" | "epitaph";
+  teamSlug: string;
+  text: string;
+  generated: boolean;
+};
+
 function formatDateTime(value: string | null) {
   if (!value) return "Not finished";
   return new Date(value).toLocaleString("en", {
@@ -69,7 +87,7 @@ function teamLabel(teamId: string) {
 }
 
 export default async function AdminPage({ searchParams }: AdminPageProps) {
-  const { password, updated, reportUpdated } = await searchParams;
+  const { password, updated, reportUpdated, contentUpdated } = await searchParams;
   const configuredPassword = process.env.ADMIN_PASSWORD;
   const authorized = Boolean(configuredPassword && password === configuredPassword);
 
@@ -152,6 +170,12 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             </div>
           )}
 
+          {contentUpdated && (
+            <div className="mt-6 rounded-md border border-[var(--green)]/40 bg-[var(--green)]/10 p-4 text-sm text-green-100">
+              Updated content <code>{contentUpdated}</code>.
+            </div>
+          )}
+
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
             <section className="stone-panel rounded-md p-5">
               <div className="flex items-end justify-between gap-4">
@@ -231,6 +255,51 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                       </label>
                     </div>
                   </form>
+                ))}
+              </div>
+            </section>
+
+            <section className="stone-panel rounded-md p-5">
+              <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+                <div>
+                  <h2 className="text-2xl font-semibold">Content Lab</h2>
+                  <p className="mt-2 text-sm text-[var(--muted)]">
+                    DeepSeek refreshes original causes and epitaphs after safety checks.
+                  </p>
+                </div>
+                <form action={syncMemeContentAction} className="flex gap-2">
+                  <input name="password" type="hidden" value={password} />
+                  <input
+                    className="min-h-10 w-36 rounded-sm border border-white/10 bg-black/25 px-3 text-sm outline-none focus:border-[var(--gold)]"
+                    name="slug"
+                    placeholder="team slug"
+                  />
+                  <button className="min-h-10 rounded-sm bg-[var(--gold)] px-3 py-2 text-sm font-semibold text-[#14110d]">
+                    Refresh
+                  </button>
+                </form>
+              </div>
+              <div className="mt-4 max-h-[760px] space-y-3 overflow-auto pr-2">
+                {(snapshot.contentItems as ContentItemRow[]).map((item) => (
+                  <article key={`${item.type}_${item.id}`} className="rounded-sm border border-white/10 bg-black/20 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+                          {item.teamSlug} · {item.type} · {item.generated ? "generated" : "seeded"}
+                        </p>
+                        <p className="mt-2 text-sm leading-6">{item.text}</p>
+                        <code className="mt-2 block truncate text-xs text-[var(--muted)]">{item.id}</code>
+                      </div>
+                      <form action={deactivateContentAction}>
+                        <input name="password" type="hidden" value={password} />
+                        <input name="id" type="hidden" value={item.id} />
+                        <input name="type" type="hidden" value={item.type} />
+                        <button className="min-h-9 rounded-sm border border-[var(--red)]/40 px-3 py-1 text-xs font-semibold text-red-100">
+                          Disable
+                        </button>
+                      </form>
+                    </div>
+                  </article>
                 ))}
               </div>
             </section>

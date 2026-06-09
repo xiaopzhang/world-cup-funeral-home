@@ -43,7 +43,7 @@ export function TeamCard({ team }: { team: Team }) {
         </span>
       </div>
       {playable ? (
-        <LinkButton className="mt-4 w-full" href="/create?team=italy">
+        <LinkButton className="mt-4 w-full" href={`/create?team=${team.slug}`}>
           Build a Tombstone
         </LinkButton>
       ) : (

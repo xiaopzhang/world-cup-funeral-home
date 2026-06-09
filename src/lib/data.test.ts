@@ -6,7 +6,15 @@ import {
   interactWithTombstone,
   leaveTribute,
 } from "./demo-store";
-import { getCauseOptions, getPlayableTeams, teams } from "./seed-data";
+import {
+  getCauseOptions,
+  getEpitaphOptions,
+  getPlayableTeams,
+  getShareHooks,
+  teamContentPacks,
+  teams,
+  worldCupTeamSlugs,
+} from "./seed-data";
 
 describe("seed data", () => {
   it("makes Italy the only playable early admission team", () => {
@@ -35,6 +43,34 @@ describe("seed data", () => {
 
     expect(causes).toContain("Penalty heartbreak");
     expect(causes).toContain("Football royalty denied entry");
+  });
+
+  it("covers all 48 World Cup teams with team-specific content", () => {
+    expect(worldCupTeamSlugs).toHaveLength(48);
+
+    for (const slug of worldCupTeamSlugs) {
+      const pack = teamContentPacks[slug];
+      expect(pack, slug).toBeDefined();
+      expect(pack.causes.filter((item) => item.isTeamSpecific).length, slug).toBeGreaterThanOrEqual(6);
+      expect(pack.epitaphs.filter((item) => item.isTeamSpecific).length, slug).toBeGreaterThanOrEqual(4);
+      expect(pack.shareHooks.tombstone.length, slug).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("gives hot teams richer content than baseline teams", () => {
+    const brazil = teamContentPacks.brazil;
+    const algeria = teamContentPacks.algeria;
+
+    expect(brazil.priority).toBe("hot");
+    expect(brazil.causes.length).toBeGreaterThan(algeria.causes.length);
+    expect(brazil.epitaphs.length).toBeGreaterThan(algeria.epitaphs.length);
+  });
+
+  it("returns team-aware causes, epitaphs, and share hooks", () => {
+    expect(getCauseOptions("brazil")).toContain("Samba ran into a low block");
+    expect(getEpitaphOptions("brazil")).toContain("The dance was beautiful. The ending was not.");
+    expect(getShareHooks("brazil").flower).toContain("Brazil");
+    expect(getShareHooks("france").flower).toContain("France");
   });
 
   it("returns only playable teams for tombstone creation", () => {

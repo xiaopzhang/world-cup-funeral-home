@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanSignature, validateUserText } from "./validation";
+import { cleanSignature, validateRequiredSignature, validateUserText } from "./validation";
 
 describe("user text validation", () => {
   it("rejects links and harmful football-off-topic content", () => {
@@ -18,5 +18,14 @@ describe("user text validation", () => {
     expect(cleanSignature("")).toBe("Anonymous Fan");
     expect(cleanSignature("  Udo  ")).toBe("Udo");
     expect(cleanSignature("x".repeat(40))).toHaveLength(30);
+  });
+
+  it("requires tombstone signatures before cleaning", () => {
+    expect(validateRequiredSignature("", 30)).toEqual({
+      ok: false,
+      message: "Buried by is required.",
+    });
+    expect(validateRequiredSignature("  ", 30).ok).toBe(false);
+    expect(validateRequiredSignature("Udo", 30).ok).toBe(true);
   });
 });

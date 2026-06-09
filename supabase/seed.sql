@@ -122,9 +122,50 @@ on conflict (id) do nothing;
 
 insert into public.epitaph_library (id, team_id, epitaph_text, tone, is_team_specific)
 values
+  ('epitaph_generic_1', null, 'They arrived with hope. Football handled the paperwork.', 'dark_comedy', false),
+  ('epitaph_generic_2', null, 'The dream was loud. The final whistle was louder.', 'dark_comedy', false),
+  ('epitaph_generic_3', null, 'Beloved by fans, betrayed by the scoreboard.', 'dark_comedy', false),
+  ('epitaph_generic_4', null, 'Here lies a campaign that needed one more miracle.', 'dark_comedy', false),
+  ('epitaph_generic_5', null, 'May the replay never find them.', 'dark_comedy', false),
   ('epitaph_italy_1', 'team_italy', 'Four stars above the badge. No seat at the table.', 'dark_comedy', true),
   ('epitaph_italy_2', 'team_italy', 'The anthem was ready. The invitation was not.', 'dark_comedy', true),
   ('epitaph_italy_3', 'team_italy', 'Here lies a giant, locked outside its own museum.', 'dark_comedy', true),
   ('epitaph_italy_4', 'team_italy', 'Catenaccio defended everything except fate.', 'dark_comedy', true),
   ('epitaph_italy_5', 'team_italy', 'Italy didn’t lose the World Cup. It lost the doorway.', 'dark_comedy', true)
+on conflict (id) do nothing;
+
+insert into public.cause_library (id, team_id, cause_text, category, is_team_specific)
+select
+  'cause_' || teams.slug || '_seed_' || templates.idx,
+  teams.id,
+  replace(templates.template, '{team}', teams.name),
+  'team',
+  true
+from public.teams
+cross join (
+  values
+    (1, '{team} hope collapsed under tournament gravity'),
+    (2, '{team} were escorted out by the football gods'),
+    (3, '{team} vibes failed the knockout stress test'),
+    (4, '{team} tactical plan met actual consequences'),
+    (5, '{team} optimism was declared medically unfit'),
+    (6, '{team} ran out of miracles before stoppage time')
+) as templates(idx, template)
+on conflict (id) do nothing;
+
+insert into public.epitaph_library (id, team_id, epitaph_text, tone, is_team_specific)
+select
+  'epitaph_' || teams.slug || '_seed_' || templates.idx,
+  teams.id,
+  replace(templates.template, '{team}', teams.name),
+  'fan_pain',
+  true
+from public.teams
+cross join (
+  values
+    (1, 'Here lies {team}, loved loudly and eliminated publicly.'),
+    (2, '{team} came with belief. The bracket came with receipts.'),
+    (3, 'May {team} fans find peace before the next qualifier.'),
+    (4, 'The flag still waves. The campaign does not.')
+) as templates(idx, template)
 on conflict (id) do nothing;

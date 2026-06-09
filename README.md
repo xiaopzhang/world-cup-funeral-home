@@ -8,6 +8,7 @@ An English-only satirical football memorial app for creating and sharing tombsto
 - Supabase Postgres for teams, tombstones, tributes, interactions, reports, sync logs, and audit events
 - Vercel Analytics and Vercel Cron
 - football-data.org v4 as the low-cost primary World Cup match provider
+- DeepSeek chat completions for original, automatically refreshed football meme copy
 
 ## Environment Variables
 
@@ -16,6 +17,11 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 FOOTBALL_DATA_API_TOKEN=
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=
+MEME_REFRESH_MODEL=
+MEME_REFRESH_MAX_ITEMS_PER_TEAM=
+MEME_REFRESH_HOT_TEAM_LIMIT=
 ADMIN_PASSWORD=
 CRON_SECRET=
 ```
@@ -34,9 +40,39 @@ curl -X POST \
 
 The sync pipeline stores provider match summaries, records sync runs, applies deterministic elimination rules, and writes rollbackable team status events. If provider data is incomplete, the sync run records an error instead of publishing a guessed status.
 
+## Meme Content Sync
+
+Vercel Cron also calls `/api/cron/sync-meme-content` daily. This route uses DeepSeek to generate original English causes of death and epitaphs for high-priority teams first, then validates every line locally before publishing it to `cause_library` or `epitaph_library`.
+
+Required:
+
+```bash
+DEEPSEEK_API_KEY=
+CRON_SECRET=
+```
+
+Optional:
+
+```bash
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+MEME_REFRESH_MODEL=deepseek-chat
+MEME_REFRESH_MAX_ITEMS_PER_TEAM=3
+MEME_REFRESH_HOT_TEAM_LIMIT=8
+```
+
+Manual sync for one team:
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  "https://world-cup-funeral-home.tickletickle.space/api/cron/sync-meme-content?team=brazil"
+```
+
+Generated content is rejected before publishing if it contains links, handles, slurs, real-person attacks, unsafe political references, overlong text, off-topic copy, or near-duplicates. Admins can disable active content from `/admin` without deleting audit history.
+
 ## Admin
 
-Visit `/admin` and enter `ADMIN_PASSWORD` to inspect team status, sync runs, reports, and status events. Admin API endpoints require the same password in `x-admin-password`.
+Visit `/admin` and enter `ADMIN_PASSWORD` to inspect team status, sync runs, reports, status events, and active content. Admin API endpoints require the same password in `x-admin-password`.
 
 ## Getting Started
 

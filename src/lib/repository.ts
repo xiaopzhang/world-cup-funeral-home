@@ -10,7 +10,15 @@ import {
   interactWithTombstone as interactWithDemoTombstone,
   leaveTribute as leaveDemoTribute,
 } from "./demo-store";
-import { italyDeathMatch, matches as seededMatches, teams as seededTeams } from "./seed-data";
+import {
+  getTeamContentPack,
+  italyDeathMatch,
+  matches as seededMatches,
+  teamContentPacks,
+  teams as seededTeams,
+} from "./seed-data";
+import { filterGeneratedLines } from "./content-safety";
+import { generateDeepSeekMemeContent } from "./deepseek";
 import {
   applyWorldCupMatchEvents,
   fetchFootballDataWorldCupMatches,
@@ -25,12 +33,13 @@ import {
   isDuplicateTributeSubmission,
   type TributeVoteType,
 } from "./tribute-engagement";
-import { cleanSignature, validateUserText } from "./validation";
+import { cleanSignature, validateRequiredSignature, validateUserText } from "./validation";
 import type {
   ActivityItem,
   InteractionType,
   Match,
   Team,
+  TeamContentPack,
   Tombstone,
   TombstoneDetails,
   Tribute,
@@ -138,6 +147,26 @@ type DbTributeVote = {
   tribute_id: string;
   vote_type: TributeVoteType;
   subject_hash: string;
+};
+
+type DbCause = {
+  id: string;
+  team_id: string | null;
+  cause_text: string;
+  category: string;
+  is_team_specific: boolean;
+  is_user_generated?: boolean;
+  is_active?: boolean;
+};
+
+type DbEpitaph = {
+  id: string;
+  team_id: string | null;
+  epitaph_text: string;
+  tone: string | null;
+  is_team_specific: boolean;
+  is_user_generated?: boolean;
+  is_active?: boolean;
 };
 
 let serverClient: SupabaseClient | null = null;
@@ -309,6 +338,68 @@ function matchFromDb(row: DbMatch, teamsById: Map<string, Team>): Match {
   };
 }
 
+function contentPackFromDb({
+  team,
+  genericCauses,
+  teamCauses,
+  genericEpitaphs,
+  teamEpitaphs,
+}: {
+  team: Team;
+  genericCauses: DbCause[];
+  teamCauses: DbCause[];
+  genericEpitaphs: DbEpitaph[];
+  teamEpitaphs: DbEpitaph[];
+}): TeamContentPack {
+  const fallback = getTeamContentPack(team.slug);
+  const causeRows = [
+    ...(genericCauses.length
+      ? genericCauses.map((row) => ({
+          id: row.id,
+          text: row.cause_text,
+          category: row.is_user_generated ? "generated" as const : "generic" as const,
+          isTeamSpecific: row.is_team_specific,
+        }))
+      : fallback.causes.filter((item) => !item.isTeamSpecific)),
+    ...(teamCauses.length
+      ? teamCauses.map((row) => ({
+          id: row.id,
+          text: row.cause_text,
+          category: row.is_user_generated ? "generated" as const : "team" as const,
+          isTeamSpecific: row.is_team_specific,
+        }))
+      : fallback.causes.filter((item) => item.isTeamSpecific)),
+  ];
+  const epitaphRows = [
+    ...(genericEpitaphs.length
+      ? genericEpitaphs.map((row) => ({
+          id: row.id,
+          text: row.epitaph_text,
+          tone: row.is_user_generated ? "generated" as const : "dark_comedy" as const,
+          isTeamSpecific: row.is_team_specific,
+        }))
+      : fallback.epitaphs.filter((item) => !item.isTeamSpecific)),
+    ...(teamEpitaphs.length
+      ? teamEpitaphs.map((row) => ({
+          id: row.id,
+          text: row.epitaph_text,
+          tone: row.is_user_generated
+            ? "generated" as const
+            : row.tone === "fan_pain"
+              ? "fan_pain" as const
+              : "dark_comedy" as const,
+          isTeamSpecific: row.is_team_specific,
+        }))
+      : fallback.epitaphs.filter((item) => item.isTeamSpecific)),
+  ];
+
+  return {
+    ...fallback,
+    causes: causeRows,
+    epitaphs: epitaphRows,
+  };
+}
+
 function tributeFromDb(row: DbTribute, teamsById: Map<string, Team>): Tribute {
   return {
     id: row.id,
@@ -425,9 +516,68 @@ export async function getHomeSnapshot() {
   };
 }
 
+export async function getContentOptions(teamSlug: string): Promise<TeamContentPack> {
+  const client = getServerClient();
+  if (!client) return getTeamContentPack(teamSlug);
+
+  const { data: teamRow, error: teamError } = await client
+    .from("teams")
+    .select("*")
+    .eq("slug", teamSlug)
+    .single();
+  if (teamError || !teamRow) return getTeamContentPack(teamSlug);
+  const team = teamFromDb(teamRow as DbTeam);
+
+  const [genericCauses, teamCauses, genericEpitaphs, teamEpitaphs] = await Promise.all([
+    client
+      .from("cause_library")
+      .select("*")
+      .is("team_id", null)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true }),
+    client
+      .from("cause_library")
+      .select("*")
+      .eq("team_id", team.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true }),
+    client
+      .from("epitaph_library")
+      .select("*")
+      .is("team_id", null)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true }),
+    client
+      .from("epitaph_library")
+      .select("*")
+      .eq("team_id", team.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  if (genericCauses.error || teamCauses.error || genericEpitaphs.error || teamEpitaphs.error) {
+    return getTeamContentPack(teamSlug);
+  }
+
+  return contentPackFromDb({
+    team,
+    genericCauses: (genericCauses.data ?? []) as DbCause[],
+    teamCauses: (teamCauses.data ?? []) as DbCause[],
+    genericEpitaphs: (genericEpitaphs.data ?? []) as DbEpitaph[],
+    teamEpitaphs: (teamEpitaphs.data ?? []) as DbEpitaph[],
+  });
+}
+
+export async function getShareHooks(teamSlug: string) {
+  return (await getContentOptions(teamSlug)).shareHooks;
+}
+
 export async function getCreateOptions() {
   const teams = (await getTeamsWithCounts()).filter((team) => team.isPlayable);
   const client = getServerClient();
+  const content = Object.fromEntries(
+    await Promise.all(teams.map(async (team) => [team.slug, await getContentOptions(team.slug)])),
+  );
   if (client) {
     const teamsById = new Map((await loadTeamsWithCounts(client)).map((team) => [team.id, team]));
     const matchIds = teams.map((team) => team.deathMatchId).filter(Boolean) as string[];
@@ -437,6 +587,7 @@ export async function getCreateOptions() {
       return {
         teams,
         matches: ((data ?? []) as DbMatch[]).map((row) => matchFromDb(row, teamsById)),
+        content,
       };
     }
   }
@@ -444,6 +595,7 @@ export async function getCreateOptions() {
   return {
     teams,
     matches: seededMatches,
+    content,
   };
 }
 
@@ -454,7 +606,7 @@ export async function createTombstoneRecord(input: CreateInput): Promise<Tombsto
   const [causeValidation, epitaphValidation, signatureValidation] = [
     validateUserText(input.causeOfDeath, 80),
     validateUserText(input.epitaph, 120),
-    validateUserText(input.buriedBy, 30),
+    validateRequiredSignature(input.buriedBy, 30),
   ];
   for (const result of [causeValidation, epitaphValidation, signatureValidation]) {
     if (!result.ok) throw new Error(result.message);
@@ -871,11 +1023,27 @@ export async function getAdminSnapshot() {
       syncRuns: [],
       reports: [],
       statusEvents: [],
+      contentItems: Object.values(teamContentPacks).flatMap((pack) => [
+        ...pack.causes.slice(0, 3).map((item) => ({
+          id: item.id,
+          type: "cause",
+          teamSlug: pack.teamSlug,
+          text: item.text,
+          generated: false,
+        })),
+        ...pack.epitaphs.slice(0, 2).map((item) => ({
+          id: item.id,
+          type: "epitaph",
+          teamSlug: pack.teamSlug,
+          text: item.text,
+          generated: false,
+        })),
+      ]),
       usingFallback: true,
     };
   }
 
-  const [teams, syncRuns, reports, statusEvents] = await Promise.all([
+  const [teams, syncRuns, reports, statusEvents, causes, epitaphs] = await Promise.all([
     loadTeamsWithCounts(client),
     client.from("sync_runs").select("*").order("created_at", { ascending: false }).limit(20),
     client.from("reports").select("*").order("created_at", { ascending: false }).limit(30),
@@ -884,17 +1052,49 @@ export async function getAdminSnapshot() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(30),
+    client
+      .from("cause_library")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(80),
+    client
+      .from("epitaph_library")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(80),
   ]);
 
   if (syncRuns.error) throw syncRuns.error;
   if (reports.error) throw reports.error;
   if (statusEvents.error) throw statusEvents.error;
+  if (causes.error) throw causes.error;
+  if (epitaphs.error) throw epitaphs.error;
+
+  const teamsById = new Map(teams.map((team) => [team.id, team]));
 
   return {
     teams,
     syncRuns: syncRuns.data ?? [],
     reports: reports.data ?? [],
     statusEvents: statusEvents.data ?? [],
+    contentItems: [
+      ...(((causes.data ?? []) as DbCause[]).map((item) => ({
+        id: item.id,
+        type: "cause",
+        teamSlug: item.team_id ? teamsById.get(item.team_id)?.slug ?? "unknown" : "generic",
+        text: item.cause_text,
+        generated: Boolean(item.is_user_generated),
+      }))),
+      ...(((epitaphs.data ?? []) as DbEpitaph[]).map((item) => ({
+        id: item.id,
+        type: "epitaph",
+        teamSlug: item.team_id ? teamsById.get(item.team_id)?.slug ?? "unknown" : "generic",
+        text: item.epitaph_text,
+        generated: Boolean(item.is_user_generated),
+      }))),
+    ],
     usingFallback: false,
   };
 }
@@ -960,6 +1160,149 @@ export async function updateTeamStatusManually(
   if (eventError) throw eventError;
 
   return { ok: true, teamSlug, status: update.status, isPlayable: update.isPlayable };
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export async function deactivateContentItem(id: string, type: "cause" | "epitaph") {
+  const client = getServerClient();
+  if (!client) throw new Error("Supabase is required for content moderation.");
+  const table = type === "cause" ? "cause_library" : "epitaph_library";
+  const { error } = await client.from(table).update({ is_active: false, updated_at: now() }).eq("id", id);
+  if (error) throw error;
+  return { ok: true, id, type };
+}
+
+export async function runMemeContentSync(teamSlug?: string) {
+  const client = getServerClient();
+  if (!client) throw new Error("Supabase is required for meme content sync.");
+
+  const started = Date.now();
+  const syncRunId = makeId("sync");
+  await client.from("sync_runs").insert({
+    id: syncRunId,
+    provider: "deepseek",
+    status: "running",
+    started_at: new Date(started).toISOString(),
+  });
+
+  try {
+    const teams = await loadTeamsWithCounts(client);
+    const teamLimit = parsePositiveInt(process.env.MEME_REFRESH_HOT_TEAM_LIMIT, 8);
+    const maxItems = parsePositiveInt(process.env.MEME_REFRESH_MAX_ITEMS_PER_TEAM, 3);
+    const candidates = teams
+      .filter((team) => (teamSlug ? team.slug === teamSlug : true))
+      .filter((team) => team.status !== "pending")
+      .sort((a, b) => {
+        const left = teamContentPacks[a.slug]?.priority === "hot" ? 0 : 1;
+        const right = teamContentPacks[b.slug]?.priority === "hot" ? 0 : 1;
+        return left - right || a.name.localeCompare(b.name);
+      })
+      .slice(0, teamSlug ? 1 : teamLimit);
+
+    if (teamSlug && !candidates.length) throw new Error("Unknown team.");
+
+    let changed = 0;
+    const notes: string[] = [];
+
+    for (const team of candidates) {
+      const content = await getContentOptions(team.slug);
+      const matchContext = team.deathMatchId
+        ? `${team.name} status: ${team.status}; death match id: ${team.deathMatchId}; eliminated at: ${team.eliminatedAt ?? "unknown"}.`
+        : `${team.name} status: ${team.status}; no elimination match yet. Generate pre-elimination fan pain that can fit future paperwork.`;
+      const generated = await generateDeepSeekMemeContent({
+        teamName: team.name,
+        teamSlug: team.slug,
+        priority: content.priority,
+        matchContext,
+        existingCauses: content.causes.map((cause) => cause.text),
+        existingEpitaphs: content.epitaphs.map((epitaph) => epitaph.text),
+        causeCount: maxItems,
+        epitaphCount: maxItems,
+      });
+      const filtered = filterGeneratedLines({
+        causes: generated.causes,
+        epitaphs: generated.epitaphs,
+        existingCauses: content.causes.map((cause) => cause.text),
+        existingEpitaphs: content.epitaphs.map((epitaph) => epitaph.text),
+      });
+
+      if (filtered.rejected.length) {
+        notes.push(
+          `${team.slug}: rejected batch (${filtered.rejected.map((item) => item.reason).join("; ")})`,
+        );
+        continue;
+      }
+
+      const scenario = JSON.stringify({
+        provider: "deepseek",
+        syncRunId,
+        matchContext,
+      });
+      const causeRows = filtered.causes.map((text) => ({
+        id: makeId("cause"),
+        team_id: team.id,
+        cause_text: text,
+        category: "generated",
+        scenario,
+        is_team_specific: true,
+        is_user_generated: true,
+        is_active: true,
+      }));
+      const epitaphRows = filtered.epitaphs.map((text) => ({
+        id: makeId("epitaph"),
+        team_id: team.id,
+        epitaph_text: text,
+        tone: "generated",
+        scenario,
+        is_team_specific: true,
+        is_user_generated: true,
+        is_active: true,
+      }));
+
+      if (causeRows.length) {
+        const { error } = await client.from("cause_library").insert(causeRows);
+        if (error) throw error;
+      }
+      if (epitaphRows.length) {
+        const { error } = await client.from("epitaph_library").insert(epitaphRows);
+        if (error) throw error;
+      }
+      changed += causeRows.length + epitaphRows.length;
+      notes.push(`${team.slug}: published ${causeRows.length + epitaphRows.length}`);
+    }
+
+    await client
+      .from("sync_runs")
+      .update({
+        status: "success",
+        finished_at: now(),
+        processed_count: candidates.length,
+        changed_count: changed,
+        error_message: notes.join("\n") || null,
+      })
+      .eq("id", syncRunId);
+
+    return {
+      status: "success",
+      processed: candidates.length,
+      changed,
+      notes,
+    };
+  } catch (error) {
+    await client
+      .from("sync_runs")
+      .update({
+        status: "error",
+        finished_at: now(),
+        error_message: error instanceof Error ? error.message : "Unknown meme sync error",
+      })
+      .eq("id", syncRunId);
+    throw error;
+  }
 }
 
 export async function runWorldCupSync() {

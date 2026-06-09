@@ -13,7 +13,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import type { InteractionType, TombstoneDetails } from "@/lib/types";
-import { shareHooks } from "@/lib/seed-data";
+import { getShareHooks } from "@/lib/seed-data";
 import { shareTombstone } from "@/lib/share";
 import {
   sortTributesForDisplay,
@@ -179,6 +179,7 @@ export function TombstoneDetailClient({
   }
 
   const { tombstone, team, deathMatch, tributes } = details;
+  const shareHooks = getShareHooks(team.slug);
   const sortedTributes = sortTributesForDisplay(tributes, tributeSortMode);
 
   return (

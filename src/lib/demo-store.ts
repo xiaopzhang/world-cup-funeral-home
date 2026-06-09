@@ -1,4 +1,4 @@
-import { cleanSignature, validateUserText } from "./validation";
+import { cleanSignature, validateRequiredSignature, validateUserText } from "./validation";
 import { italyDeathMatch, matches, teams as seededTeams } from "./seed-data";
 import type {
   ActivityItem,
@@ -89,7 +89,7 @@ export function createTombstoneRecord(input: CreateInput): Tombstone {
 
   const causeValidation = validateUserText(input.causeOfDeath, 80);
   const epitaphValidation = validateUserText(input.epitaph, 120);
-  const signatureValidation = validateUserText(input.buriedBy, 30);
+  const signatureValidation = validateRequiredSignature(input.buriedBy, 30);
 
   for (const result of [causeValidation, epitaphValidation, signatureValidation]) {
     if (!result.ok) {
@@ -162,6 +162,8 @@ export function interactWithTombstone(
   if (!tombstone) {
     throw new Error("Tombstone not found.");
   }
+  const teamName =
+    seededTeams.find((candidate) => candidate.slug === tombstone.teamSlug)?.name ?? "this team";
 
   const key =
     interactionType === "flower"
@@ -174,10 +176,10 @@ export function interactWithTombstone(
 
   const display =
     interactionType === "flower"
-      ? "Someone left flowers for Italy."
+      ? `Someone left flowers for ${teamName}.`
       : interactionType === "candle"
-        ? "Someone lit a candle for Italy."
-        : "Someone burned incense for Italy.";
+        ? `Someone lit a candle for ${teamName}.`
+        : `Someone burned incense for ${teamName}.`;
 
   addActivity({
     activityType:
@@ -201,6 +203,8 @@ export function leaveTribute(id: string, tributeText: string, authorName: string
   if (!tombstone) {
     throw new Error("Tombstone not found.");
   }
+  const teamName =
+    seededTeams.find((candidate) => candidate.slug === tombstone.teamSlug)?.name ?? "this team";
 
   const validation = validateUserText(tributeText, 160);
   if (!validation.ok) {
@@ -227,7 +231,7 @@ export function leaveTribute(id: string, tributeText: string, authorName: string
     tombstoneId: tombstone.id,
     tributeId: tribute.id,
     interactionType: null,
-    displayText: `${tribute.authorName} left a tribute for Italy: “${tribute.tributeText}”`,
+    displayText: `${tribute.authorName} left a tribute for ${teamName}: "${tribute.tributeText}"`,
   });
 
   return tribute;

@@ -9,6 +9,38 @@ export type AdmissionType = "world_cup_elimination" | "early_admission";
 
 export type InteractionType = "flower" | "candle" | "incense";
 
+export type ContentPriority = "hot" | "standard";
+
+export type CauseOption = {
+  id: string;
+  text: string;
+  category: "generic" | "team" | "generated";
+  isTeamSpecific: boolean;
+};
+
+export type EpitaphOption = {
+  id: string;
+  text: string;
+  tone: "dark_comedy" | "fan_pain" | "generated";
+  isTeamSpecific: boolean;
+};
+
+export type ShareHookSet = {
+  tombstone: string[];
+  flower: string;
+  candle: string;
+  incense: string;
+  tribute: string;
+};
+
+export type TeamContentPack = {
+  teamSlug: string;
+  priority: ContentPriority;
+  causes: CauseOption[];
+  epitaphs: EpitaphOption[];
+  shareHooks: ShareHookSet;
+};
+
 export type ActivityType =
   | "tombstone_created"
   | "flower_offered"
