@@ -202,6 +202,18 @@ create index if not exists provider_matches_provider_match_id_idx on public.prov
 create index if not exists sync_runs_created_at_idx on public.sync_runs(created_at desc);
 create index if not exists reports_created_at_idx on public.reports(created_at desc);
 create index if not exists team_status_events_created_at_idx on public.team_status_events(created_at desc);
+create unique index if not exists cause_library_active_unique_text_idx
+  on public.cause_library (
+    coalesce(team_id, '__generic__'),
+    lower(regexp_replace(trim(cause_text), '[[:space:]]+', ' ', 'g'))
+  )
+  where is_active = true;
+create unique index if not exists epitaph_library_active_unique_text_idx
+  on public.epitaph_library (
+    coalesce(team_id, '__generic__'),
+    lower(regexp_replace(trim(epitaph_text), '[[:space:]]+', ' ', 'g'))
+  )
+  where is_active = true;
 
 alter table public.tributes
   add column if not exists like_count integer not null default 0,
