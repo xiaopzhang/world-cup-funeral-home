@@ -11,6 +11,12 @@ export function SiteHeader() {
           </span>
           <span>World Cup Funeral Home</span>
         </Link>
+        <Link
+          className="rounded-sm bg-[var(--gold)] px-3 py-2 text-xs font-semibold text-[#14110d] transition hover:bg-[#f0cd82] sm:hidden"
+          href="/create?team=italy"
+        >
+          Build
+        </Link>
         <nav className="hidden items-center gap-6 text-sm text-[var(--muted)] sm:flex">
           <Link className="transition hover:text-[var(--foreground)]" href="/#team-wall">
             Team Wall

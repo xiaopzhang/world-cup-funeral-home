@@ -200,6 +200,10 @@ function makeId(prefix: string) {
   return `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
 }
 
+function makeTombstoneShareSlug(teamSlug: string) {
+  return `${teamSlug}-tombstone-${Math.random().toString(36).slice(2, 7)}`;
+}
+
 function isMissingColumnError(error: unknown, columnName: string) {
   if (!error || typeof error !== "object") return false;
   const maybeError = error as { code?: string; message?: string };
@@ -630,10 +634,16 @@ export async function createTombstoneRecord(input: CreateInput): Promise<Tombsto
     buried_by: cleanSignature(input.buriedBy),
     share_slug: "",
   };
-  tombstoneRow.share_slug = tombstoneRow.id;
+  tombstoneRow.share_slug = makeTombstoneShareSlug(team.slug);
 
-  const { data, error } = await client.from("tombstones").insert(tombstoneRow).select("*").single();
-  if (error || !data) throw new Error(error?.message ?? "Unable to publish tombstone.");
+  let insertResult = await client.from("tombstones").insert(tombstoneRow).select("*").single();
+  if (insertResult.error?.code === "23505") {
+    tombstoneRow.share_slug = makeTombstoneShareSlug(team.slug);
+    insertResult = await client.from("tombstones").insert(tombstoneRow).select("*").single();
+  }
+  if (insertResult.error || !insertResult.data) {
+    throw new Error(insertResult.error?.message ?? "Unable to publish tombstone.");
+  }
 
   await addActivity(client, {
     activity_type: "tombstone_created",
@@ -644,7 +654,7 @@ export async function createTombstoneRecord(input: CreateInput): Promise<Tombsto
     display_text: `${tombstoneRow.buried_by} buried ${team.name}. Cause of death: ${tombstoneRow.cause_of_death}.`,
   });
 
-  return tombstoneFromDb(data as DbTombstone, new Map([[team.id, team]]));
+  return tombstoneFromDb(insertResult.data as DbTombstone, new Map([[team.id, team]]));
 }
 
 export async function getTombstoneDetails(id: string): Promise<TombstoneDetails | null> {

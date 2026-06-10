@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type { InteractionType, TombstoneDetails } from "@/lib/types";
 import { getShareHooks } from "@/lib/seed-data";
-import { shareTombstone } from "@/lib/share";
+import { formatTombstoneShareText, shareTombstone } from "@/lib/share";
 import {
   sortTributesForDisplay,
   tributeScore,
@@ -44,6 +44,7 @@ export function TombstoneDetailClient({
   const [tributeText, setTributeText] = useState("");
   const [authorName, setAuthorName] = useState("");
   const [submittingTribute, setSubmittingTribute] = useState(false);
+  const [downloadingPoster, setDownloadingPoster] = useState(false);
   const [tributeSortMode, setTributeSortMode] = useState<TributeSortMode>("hot");
   const posterRef = useRef<HTMLDivElement>(null);
 
@@ -135,9 +136,19 @@ export function TombstoneDetailClient({
 
   async function copyShare() {
     const url = window.location.href.split("?")[0];
+    if (!details) return;
+    const { tombstone, team } = details;
+    const hook = shareHooks.tombstone[0];
+    const text = formatTombstoneShareText({
+      teamName: team.name,
+      causeOfDeath: tombstone.causeOfDeath,
+      epitaph: tombstone.epitaph,
+      hook,
+      url,
+    });
     const result = await shareTombstone({
-      title: "World Cup Funeral Home",
-      text: shareHooks.tombstone[0],
+      title: `${team.name} Tombstone`,
+      text,
       url,
     });
 
@@ -154,12 +165,24 @@ export function TombstoneDetailClient({
   }
 
   async function downloadPoster() {
-    if (!posterRef.current) return;
-    const dataUrl = await toPng(posterRef.current, { pixelRatio: 2, cacheBust: true });
-    const link = document.createElement("a");
-    link.download = "world-cup-funeral-home-poster.png";
-    link.href = dataUrl;
-    link.click();
+    if (!posterRef.current || downloadingPoster) return;
+    setDownloadingPoster(true);
+    setMessage("Preparing poster...");
+    try {
+      const dataUrl = await toPng(posterRef.current, {
+        pixelRatio: window.innerWidth < 640 ? 1.35 : 2,
+        cacheBust: true,
+      });
+      const link = document.createElement("a");
+      link.download = `${team.slug}-world-cup-funeral-home-poster.png`;
+      link.href = dataUrl;
+      link.click();
+      setMessage("Poster downloaded.");
+    } catch {
+      setMessage("Poster download failed. Please try again.");
+    } finally {
+      setDownloadingPoster(false);
+    }
   }
 
   if (loading) {
@@ -181,6 +204,10 @@ export function TombstoneDetailClient({
   const { tombstone, team, deathMatch, tributes } = details;
   const shareHooks = getShareHooks(team.slug);
   const sortedTributes = sortTributesForDisplay(tributes, tributeSortMode);
+  const canonicalUrl =
+    typeof window === "undefined"
+      ? `https://world-cup-funeral-home.tickletickle.space/tombstone/${tombstone.shareSlug}`
+      : window.location.href.split("?")[0];
 
   return (
     <main className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_0.85fr] lg:px-8">
@@ -206,6 +233,14 @@ export function TombstoneDetailClient({
           <p className="mt-5 text-lg text-[var(--gold)]">
             {team.flowerCount + team.candleCount + team.incenseCount + team.tributeCount} fans have already paid their respects.
           </p>
+          <div className="mx-auto mt-5 max-w-md rounded-sm border border-[var(--gold)]/35 bg-black/25 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
+              Pay respects here
+            </p>
+            <p className="mt-1 break-all font-mono text-xs leading-5 text-[#f6efe1]">
+              {canonicalUrl}
+            </p>
+          </div>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -222,9 +257,12 @@ export function TombstoneDetailClient({
             <Share2 size={17} /> Share Tombstone
           </Button>
         </div>
-        <Button className="mt-3 w-full" variant="secondary" onClick={downloadPoster}>
-          <Gift size={17} /> Download Share Poster
+        <Button className="mt-3 w-full" variant="secondary" onClick={downloadPoster} disabled={downloadingPoster}>
+          <Gift size={17} /> {downloadingPoster ? "Preparing Poster..." : "Download Share Poster"}
         </Button>
+        <LinkButton className="mt-3 w-full sm:hidden" href="/create?team=italy">
+          Build Your Own Tombstone
+        </LinkButton>
         <button
           className="mt-3 text-xs text-[var(--muted)] underline underline-offset-4"
           onClick={() => reportContent("tombstone", tombstone.id)}
@@ -262,6 +300,16 @@ export function TombstoneDetailClient({
             </div>
           </div>
         )}
+
+        <div className="stone-panel hidden rounded-md p-5 sm:block">
+          <h2 className="text-xl font-semibold">Build your own tombstone</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Send another fallen team to the Funeral Home.
+          </p>
+          <LinkButton className="mt-4 w-full" href="/create?team=italy">
+            Build a Tombstone
+          </LinkButton>
+        </div>
 
         <div className="stone-panel rounded-md p-5">
           <h2 className="text-xl font-semibold">This tombstone has received</h2>

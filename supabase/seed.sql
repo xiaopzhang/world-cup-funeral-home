@@ -28,7 +28,7 @@ values
   ('team_jordan', 'Jordan', 'jordan', 'jo', 'https://flagcdn.com/w160/jo.png', 'alive', 'world_cup_elimination', false, null, null),
   ('team_korea-republic', 'Korea Republic', 'korea-republic', 'kr', 'https://flagcdn.com/w160/kr.png', 'alive', 'world_cup_elimination', false, null, null),
   ('team_mexico', 'Mexico', 'mexico', 'mx', 'https://flagcdn.com/w160/mx.png', 'alive', 'world_cup_elimination', false, null, null),
-  ('team_morocco', 'Morocco', 'morocco', 'ma', 'https://flagcdn.com/w160/ma.png', 'alive', 'world_cup_elimination', false, null, null),
+  ('team_morocco', 'Morocco', 'morocco', 'ma', '/flags/ma.svg', 'alive', 'world_cup_elimination', false, null, null),
   ('team_netherlands', 'Netherlands', 'netherlands', 'nl', 'https://flagcdn.com/w160/nl.png', 'alive', 'world_cup_elimination', false, null, null),
   ('team_new-zealand', 'New Zealand', 'new-zealand', 'nz', 'https://flagcdn.com/w160/nz.png', 'alive', 'world_cup_elimination', false, null, null),
   ('team_norway', 'Norway', 'norway', 'no', 'https://flagcdn.com/w160/no.png', 'alive', 'world_cup_elimination', false, null, null),

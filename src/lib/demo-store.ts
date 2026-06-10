@@ -40,6 +40,10 @@ function makeId(prefix: string) {
     .slice(2, 8)}`;
 }
 
+function makeTombstoneShareSlug(teamSlug: string) {
+  return `${teamSlug}-tombstone-${Math.random().toString(36).slice(2, 7)}`;
+}
+
 function addActivity(item: Omit<ActivityItem, "id" | "createdAt">) {
   store.activity.unshift({
     id: makeId("act"),
@@ -113,7 +117,7 @@ export function createTombstoneRecord(input: CreateInput): Tombstone {
     isPublic: true,
     moderationStatus: "approved",
   };
-  tombstone.shareSlug = tombstone.id;
+  tombstone.shareSlug = makeTombstoneShareSlug(team.slug);
   store.tombstones.unshift(tombstone);
   addActivity({
     activityType: "tombstone_created",

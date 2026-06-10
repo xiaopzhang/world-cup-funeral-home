@@ -185,7 +185,22 @@ export function CreateTombstoneFlow({
         </LinkButton>
       </div>
 
-      <div className="mb-8 grid gap-2 sm:grid-cols-5">
+      <div className="mb-5 rounded-sm border border-white/10 bg-white/[0.03] p-3 sm:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+            Step {step + 1} of {steps.length}
+          </p>
+          <p className="text-sm font-semibold text-[var(--gold)]">{steps[step]}</p>
+        </div>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/35">
+          <div
+            className="h-full rounded-full bg-[var(--gold)] transition-all"
+            style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="mb-8 hidden gap-2 sm:grid sm:grid-cols-5">
         {steps.map((label, index) => (
           <button
             key={label}

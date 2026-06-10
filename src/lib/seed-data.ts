@@ -1,6 +1,10 @@
 import type { CauseOption, EpitaphOption, Match, ShareHookSet, Team, TeamContentPack } from "./types";
 
-const flag = (code: string) => `https://flagcdn.com/w160/${code}.png`;
+const flagOverrides: Record<string, string> = {
+  ma: "/flags/ma.svg",
+};
+
+const flag = (code: string) => flagOverrides[code] ?? `https://flagcdn.com/w160/${code}.png`;
 
 const qualifiedTeams = [
   ["Algeria", "algeria", "dz"],

@@ -20,13 +20,36 @@ export type ShareResult =
       text: string;
     };
 
+export function formatTombstoneShareText({
+  teamName,
+  causeOfDeath,
+  epitaph,
+  hook,
+  url,
+}: {
+  teamName: string;
+  causeOfDeath: string;
+  epitaph: string;
+  hook: string;
+  url: string;
+}) {
+  return [
+    `${teamName} Tombstone`,
+    `Cause of death: ${causeOfDeath}`,
+    `"${epitaph}"`,
+    "",
+    hook,
+    url,
+  ].join("\n");
+}
+
 export async function shareTombstone({
   title,
   text,
   url,
   navigatorLike,
 }: ShareInput): Promise<ShareResult> {
-  const shareText = `${text} ${url}`;
+  const shareText = text.includes(url) ? text : `${text}\n${url}`;
   const targetNavigator =
     navigatorLike ??
     (typeof navigator === "undefined" ? undefined : (navigator as NavigatorLike));

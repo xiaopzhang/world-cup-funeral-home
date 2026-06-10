@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { shareTombstone } from "./share";
+import { formatTombstoneShareText, shareTombstone } from "./share";
 
 describe("shareTombstone", () => {
   it("uses native share when available", async () => {
@@ -31,9 +31,7 @@ describe("shareTombstone", () => {
     });
 
     expect(result).toBe("copied");
-    expect(writeText).toHaveBeenCalledWith(
-      "I just buried Italy. http://localhost:3000/tombstone/1",
-    );
+    expect(writeText).toHaveBeenCalledWith("I just buried Italy.\nhttp://localhost:3000/tombstone/1");
   });
 
   it("returns manual text when browser sharing and clipboard both fail", async () => {
@@ -48,7 +46,28 @@ describe("shareTombstone", () => {
 
     expect(result).toEqual({
       kind: "manual",
-      text: "I just buried Italy. http://localhost:3000/tombstone/1",
+      text: "I just buried Italy.\nhttp://localhost:3000/tombstone/1",
     });
+  });
+
+  it("formats shares around the tombstone first", () => {
+    expect(
+      formatTombstoneShareText({
+        teamName: "Brazil",
+        causeOfDeath: "Samba ran into a low block",
+        epitaph: "The dance was beautiful. The ending was not.",
+        hook: "Come pay respects.",
+        url: "https://example.com/tombstone/brazil-tombstone-abc12",
+      }),
+    ).toBe(
+      [
+        "Brazil Tombstone",
+        "Cause of death: Samba ran into a low block",
+        "\"The dance was beautiful. The ending was not.\"",
+        "",
+        "Come pay respects.",
+        "https://example.com/tombstone/brazil-tombstone-abc12",
+      ].join("\n"),
+    );
   });
 });
