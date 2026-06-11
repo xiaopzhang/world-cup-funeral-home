@@ -3,13 +3,12 @@
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, ScrollText } from "lucide-react";
-import { getTeamContentPack, italyDeathMatch } from "@/lib/seed-data";
+import { getTeamContentPack } from "@/lib/seed-data";
 import type { Team, TeamContentPack } from "@/lib/types";
-import type { Match } from "@/lib/types";
 import { validateRequiredSignature, validateUserText } from "@/lib/validation";
 import { Button, LinkButton } from "@/components/ui";
 
-const steps = ["Choose Team", "Death Match", "Cause", "Epitaph", "Preview"];
+const steps = ["Choose Team", "Cause", "Epitaph", "Preview"];
 
 type FieldErrors = {
   buriedBy?: string;
@@ -17,11 +16,9 @@ type FieldErrors = {
 
 export function CreateTombstoneFlow({
   playableTeams,
-  deathMatches,
   contentByTeam,
 }: {
   playableTeams: Team[];
-  deathMatches: Match[];
   contentByTeam: Record<string, TeamContentPack>;
 }) {
   const router = useRouter();
@@ -53,8 +50,6 @@ export function CreateTombstoneFlow({
   const genericCauseOptions = selectedContent.causes.filter((item) => !item.isTeamSpecific);
   const teamCauseOptions = selectedContent.causes.filter((item) => item.isTeamSpecific);
   const epitaphOptions = selectedContent.epitaphs;
-  const selectedDeathMatch =
-    deathMatches.find((match) => match.id === selectedTeam?.deathMatchId) ?? italyDeathMatch;
   const finalCause = customCause.trim() || cause;
   const finalEpitaph = customEpitaph.trim() || epitaph;
   const finalBuriedBy = buriedBy.trim().replace(/\s+/g, " ").slice(0, 30);
@@ -78,16 +73,16 @@ export function CreateTombstoneFlow({
     }
 
     const checks =
-      step === 2
+      step === 1
         ? [validateUserText(finalCause, 80)]
-        : step === 3
+        : step === 2
           ? [validateUserText(finalEpitaph, 120), validateRequiredSignature(buriedBy, 30)]
           : [];
 
     const failed = checks.find((check) => !check.ok);
     if (failed && !failed.ok) {
       setError(failed.message);
-      if (step === 3 && failed.message === "Buried by is required.") {
+      if (step === 2 && failed.message === "Buried by is required.") {
         setFieldErrors({ buriedBy: failed.message });
       }
       return false;
@@ -101,21 +96,21 @@ export function CreateTombstoneFlow({
 
     const causeValidation = validateUserText(finalCause, 80);
     if (!causeValidation.ok) {
-      setStep(2);
+      setStep(1);
       setError(causeValidation.message);
       return false;
     }
 
     const epitaphValidation = validateUserText(finalEpitaph, 120);
     if (!epitaphValidation.ok) {
-      setStep(3);
+      setStep(2);
       setError(epitaphValidation.message);
       return false;
     }
 
     const signatureValidation = validateRequiredSignature(buriedBy, 30);
     if (!signatureValidation.ok) {
-      setStep(3);
+      setStep(2);
       setError(signatureValidation.message);
       setFieldErrors({ buriedBy: signatureValidation.message });
       return false;
@@ -177,7 +172,7 @@ export function CreateTombstoneFlow({
         <div>
           <h1 className="text-4xl font-semibold">Build a Tombstone</h1>
           <p className="mt-3 text-[var(--muted)]">
-            Choose a fallen team. Confirm the death match. Pick the cause. Carve the epitaph. Sign the stone.
+            Choose a fallen team. Pick the cause. Carve the epitaph. Sign the stone.
           </p>
         </div>
         <LinkButton href="/" variant="secondary">
@@ -200,7 +195,7 @@ export function CreateTombstoneFlow({
         </div>
       </div>
 
-      <div className="mb-8 hidden gap-2 sm:grid sm:grid-cols-5">
+      <div className="mb-8 hidden gap-2 sm:grid sm:grid-cols-4">
         {steps.map((label, index) => (
           <button
             key={label}
@@ -233,7 +228,7 @@ export function CreateTombstoneFlow({
                     onClick={() => chooseTeam(team.slug)}
                   >
                     <img
-                      className={`h-12 w-16 rounded-sm object-cover ${team.isPlayable ? "" : "flag-dead"}`}
+                      className={`flag-image h-12 w-16 rounded-sm ${team.isPlayable ? "" : "flag-dead"}`}
                       src={team.flagUrl}
                       alt={`${team.name} flag`}
                     />
@@ -248,16 +243,6 @@ export function CreateTombstoneFlow({
         )}
 
         {step === 1 && (
-          <div>
-            <h2 className="text-2xl font-semibold">Confirm Death Match</h2>
-            <div className="mt-6 rounded-md border border-white/10 bg-black/20 p-6">
-              <p className="text-lg leading-8">{selectedDeathMatch.displayText}</p>
-              <p className="mt-4 text-[var(--gold)]">{selectedDeathMatch.broadcastText}</p>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
           <div>
             <h2 className="text-2xl font-semibold">Choose a Cause of Death</h2>
             <p className="mt-2 text-[var(--muted)]">Pick one from the official paperwork, or write your own.</p>
@@ -318,7 +303,7 @@ export function CreateTombstoneFlow({
           </div>
         )}
 
-        {step === 3 && (
+        {step === 2 && (
           <div>
             <h2 className="text-2xl font-semibold">Choose an Epitaph</h2>
             <p className="mt-2 text-[var(--muted)]">Pick a final line, or carve your own.</p>
@@ -369,14 +354,14 @@ export function CreateTombstoneFlow({
           </div>
         )}
 
-        {step === 4 && (
+        {step === 3 && (
           <div>
             <h2 className="text-2xl font-semibold">Preview Tombstone</h2>
             <div className="realistic-tombstone-scene mt-8">
               <div className="realistic-tombstone">
                 <div className="realistic-tombstone-content">
                   <img
-                    className="realistic-tombstone-flag"
+                    className="realistic-tombstone-flag flag-image"
                     src={selectedTeam.flagUrl}
                     alt={`${selectedTeam.name} flag`}
                   />

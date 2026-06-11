@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type { InteractionType, TombstoneDetails } from "@/lib/types";
 import { getShareHooks } from "@/lib/seed-data";
-import { formatTombstoneShareText, shareTombstone } from "@/lib/share";
+import { shareTombstone } from "@/lib/share";
 import {
   sortTributesForDisplay,
   tributeScore,
@@ -45,6 +45,7 @@ export function TombstoneDetailClient({
   const [authorName, setAuthorName] = useState("");
   const [submittingTribute, setSubmittingTribute] = useState(false);
   const [downloadingPoster, setDownloadingPoster] = useState(false);
+  const [ritualBurst, setRitualBurst] = useState<{ type: InteractionType; id: number } | null>(null);
   const [tributeSortMode, setTributeSortMode] = useState<TributeSortMode>("hot");
   const posterRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +62,12 @@ export function TombstoneDetailClient({
   }, [id, initialDetails]);
 
   async function ritual(interactionType: InteractionType) {
+    const burstId = Date.now();
+    setRitualBurst({ type: interactionType, id: burstId });
+    window.setTimeout(() => {
+      setRitualBurst((current) => (current?.id === burstId ? null : current));
+    }, 850);
+
     const response = await fetch(`/api/tombstones/${id}/interactions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -137,18 +144,10 @@ export function TombstoneDetailClient({
   async function copyShare() {
     const url = window.location.href.split("?")[0];
     if (!details) return;
-    const { tombstone, team } = details;
     const hook = shareHooks.tombstone[0];
-    const text = formatTombstoneShareText({
-      teamName: team.name,
-      causeOfDeath: tombstone.causeOfDeath,
-      epitaph: tombstone.epitaph,
-      hook,
-      url,
-    });
     const result = await shareTombstone({
-      title: `${team.name} Tombstone`,
-      text,
+      title: `${details.team.name} Tombstone`,
+      text: hook,
       url,
     });
 
@@ -174,10 +173,12 @@ export function TombstoneDetailClient({
         cacheBust: true,
       });
       const link = document.createElement("a");
-      link.download = `${team.slug}-world-cup-funeral-home-poster.png`;
+      link.download = `${team.slug}-world-cup-funeral-home-poster-${Date.now()}.png`;
       link.href = dataUrl;
+      document.body.appendChild(link);
       link.click();
-      setMessage("Poster downloaded.");
+      link.remove();
+      setMessage("Poster downloaded. You can download it again anytime.");
     } catch {
       setMessage("Poster download failed. Please try again.");
     } finally {
@@ -217,7 +218,7 @@ export function TombstoneDetailClient({
           <div className="realistic-tombstone-scene mt-8">
             <div className="realistic-tombstone">
               <div className="realistic-tombstone-content">
-                <img className="realistic-tombstone-flag" src={team.flagUrl} alt={`${team.name} flag`} />
+                <img className="realistic-tombstone-flag flag-image" src={team.flagUrl} alt={`${team.name} flag`} />
                 <p className="engraved-label mt-6">In Loving Memory of</p>
                 <h1 className="engraved-name mt-3">{team.name}</h1>
                 <div className="engraved-rule" />
@@ -244,15 +245,36 @@ export function TombstoneDetailClient({
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Button variant="secondary" onClick={() => ritual("flower")}>
-            <Flower2 size={17} /> Offer Flowers
-          </Button>
-          <Button variant="secondary" onClick={() => ritual("candle")}>
-            <Flame size={17} /> Light a Candle
-          </Button>
-          <Button variant="secondary" onClick={() => ritual("incense")}>
-            <Sparkles size={17} /> Burn Incense
-          </Button>
+          <div className="relative">
+            <Button className="w-full" variant="secondary" onClick={() => ritual("flower")}>
+              <Flower2 size={17} /> Offer Flowers
+            </Button>
+            {ritualBurst?.type === "flower" && (
+              <span key={ritualBurst.id} className="ritual-plus absolute right-3 top-1/2 text-sm font-bold text-[var(--gold)]">
+                +1
+              </span>
+            )}
+          </div>
+          <div className="relative">
+            <Button className="w-full" variant="secondary" onClick={() => ritual("candle")}>
+              <Flame size={17} /> Light a Candle
+            </Button>
+            {ritualBurst?.type === "candle" && (
+              <span key={ritualBurst.id} className="ritual-plus absolute right-3 top-1/2 text-sm font-bold text-[var(--gold)]">
+                +1
+              </span>
+            )}
+          </div>
+          <div className="relative">
+            <Button className="w-full" variant="secondary" onClick={() => ritual("incense")}>
+              <Sparkles size={17} /> Burn Incense
+            </Button>
+            {ritualBurst?.type === "incense" && (
+              <span key={ritualBurst.id} className="ritual-plus absolute right-3 top-1/2 text-sm font-bold text-[var(--gold)]">
+                +1
+              </span>
+            )}
+          </div>
           <Button onClick={copyShare}>
             <Share2 size={17} /> Share Tombstone
           </Button>

@@ -22,7 +22,6 @@ export default async function CreatePage() {
         <Suspense fallback={<div className="stone-panel rounded-md p-8">Loading funeral paperwork...</div>}>
           <CreateTombstoneFlow
             playableTeams={createOptions.teams}
-            deathMatches={createOptions.matches}
             contentByTeam={createOptions.content}
           />
         </Suspense>

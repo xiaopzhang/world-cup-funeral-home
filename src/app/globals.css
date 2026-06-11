@@ -67,6 +67,35 @@ button:disabled {
   filter: grayscale(1) contrast(0.9) brightness(0.76);
 }
 
+.flag-image {
+  display: block;
+  object-fit: cover;
+}
+
+.flag-image[src$=".svg"] {
+  background: rgba(0, 0, 0, 0.24);
+  object-fit: contain;
+}
+
+@keyframes ritual-plus {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.86);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-175%) scale(1.08);
+  }
+}
+
+.ritual-plus {
+  animation: ritual-plus 850ms ease-out forwards;
+  pointer-events: none;
+}
+
 .realistic-tombstone-scene {
   position: relative;
   isolation: isolate;
@@ -144,7 +173,6 @@ button:disabled {
   width: 5.2rem;
   border: 3px solid rgba(45, 39, 31, 0.42);
   border-radius: 3px;
-  object-fit: cover;
   box-shadow:
     0 8px 18px rgba(0, 0, 0, 0.28),
     inset 0 0 0 1px rgba(255, 255, 255, 0.2);

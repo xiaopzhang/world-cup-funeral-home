@@ -61,7 +61,7 @@ export default async function Home() {
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold)]">Early Admission</p>
                 <h2 className="mt-2 text-3xl font-semibold">Italy is already here.</h2>
               </div>
-              <img className="h-16 w-24 rounded-sm object-cover ring-1 ring-white/20" src={italy.flagUrl} alt="Italy flag" />
+              <img className="flag-image h-16 w-24 rounded-sm ring-1 ring-white/20" src={italy.flagUrl} alt="Italy flag" />
             </div>
             <div className="realistic-tombstone-scene mt-5">
               <div className="realistic-tombstone max-w-sm">

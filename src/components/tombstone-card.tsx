@@ -14,7 +14,7 @@ export function TombstoneCard({
       className="stone-panel block rounded-md p-5 transition hover:-translate-y-0.5 hover:border-[var(--gold)]/50"
     >
       <div className="flex items-center gap-3">
-        <img className="h-9 w-12 rounded-sm object-cover" src={team.flagUrl} alt={`${team.name} flag`} />
+        <img className="flag-image h-9 w-12 rounded-sm" src={team.flagUrl} alt={`${team.name} flag`} />
         <div>
           <div className="text-sm uppercase tracking-[0.18em] text-[var(--muted)]">In Loving Memory of</div>
           <h3 className="text-xl font-semibold">{team.name}</h3>

@@ -9,7 +9,7 @@ export function TeamCard({ team }: { team: Team }) {
     <article className="stone-panel flex min-h-[260px] flex-col rounded-md p-4">
       <div className="flex items-start justify-between gap-3">
         <img
-          className={`h-14 w-20 rounded-sm object-cover ring-1 ring-white/15 ${playable ? "" : "flag-dead"}`}
+          className={`flag-image h-14 w-20 rounded-sm ring-1 ring-white/15 ${playable ? "" : "flag-dead"}`}
           src={team.flagUrl}
           alt={`${team.name} flag`}
         />
