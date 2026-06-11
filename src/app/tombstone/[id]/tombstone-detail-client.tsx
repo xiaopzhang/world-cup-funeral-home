@@ -206,7 +206,7 @@ export function TombstoneDetailClient({
       link.download = `${team.slug}-world-cup-funeral-home-poster-${Date.now()}.png`;
       link.href = nextObjectUrl;
       link.click();
-      setMessage("Poster downloaded. You can download it again anytime.");
+      setMessage("Poster downloaded. You can download it again anytime. If it does not download again, refresh the page and try once more.");
     } catch {
       setMessage("Poster download failed. Please try again.");
     } finally {
