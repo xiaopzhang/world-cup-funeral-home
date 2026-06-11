@@ -47,9 +47,16 @@ export function TombstoneDetailClient({
   const [downloadingPoster, setDownloadingPoster] = useState(false);
   const [ritualBurst, setRitualBurst] = useState<{ type: InteractionType; id: number } | null>(null);
   const [tributeSortMode, setTributeSortMode] = useState<TributeSortMode>("hot");
+  const [posterUrl, setPosterUrl] = useState("");
   const posterRef = useRef<HTMLDivElement>(null);
+  const downloadLinkRef = useRef<HTMLAnchorElement>(null);
+  const posterObjectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const posterUrlFrame = window.requestAnimationFrame(() => {
+      setPosterUrl(window.location.href.split("?")[0]);
+    });
+
     fetch(`/api/tombstones/${id}`)
       .then((response) => response.json())
       .then((payload) => {
@@ -59,6 +66,14 @@ export function TombstoneDetailClient({
           setShowShare(true);
         }
       });
+
+    return () => {
+      window.cancelAnimationFrame(posterUrlFrame);
+      if (posterObjectUrlRef.current) {
+        URL.revokeObjectURL(posterObjectUrlRef.current);
+        posterObjectUrlRef.current = null;
+      }
+    };
   }, [id, initialDetails]);
 
   async function ritual(interactionType: InteractionType) {
@@ -172,12 +187,25 @@ export function TombstoneDetailClient({
         pixelRatio: window.innerWidth < 640 ? 1.35 : 2,
         cacheBust: true,
       });
-      const link = document.createElement("a");
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const nextObjectUrl = URL.createObjectURL(blob);
+
+      if (posterObjectUrlRef.current) {
+        URL.revokeObjectURL(posterObjectUrlRef.current);
+      }
+      posterObjectUrlRef.current = nextObjectUrl;
+
+      const link = downloadLinkRef.current;
+      if (!link) {
+        window.open(nextObjectUrl, "_blank", "noopener,noreferrer");
+        setMessage("Poster opened in a new tab. Save the image from there.");
+        return;
+      }
+
       link.download = `${team.slug}-world-cup-funeral-home-poster-${Date.now()}.png`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
+      link.href = nextObjectUrl;
       link.click();
-      link.remove();
       setMessage("Poster downloaded. You can download it again anytime.");
     } catch {
       setMessage("Poster download failed. Please try again.");
@@ -205,10 +233,6 @@ export function TombstoneDetailClient({
   const { tombstone, team, deathMatch, tributes } = details;
   const shareHooks = getShareHooks(team.slug);
   const sortedTributes = sortTributesForDisplay(tributes, tributeSortMode);
-  const canonicalUrl =
-    typeof window === "undefined"
-      ? `https://world-cup-funeral-home.tickletickle.space/tombstone/${tombstone.shareSlug}`
-      : window.location.href.split("?")[0];
 
   return (
     <main className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_0.85fr] lg:px-8">
@@ -238,8 +262,8 @@ export function TombstoneDetailClient({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
               Pay respects here
             </p>
-            <p className="mt-1 break-all font-mono text-xs leading-5 text-[#f6efe1]">
-              {canonicalUrl}
+            <p className="mt-1 break-all font-mono text-xs leading-5 text-[#f6efe1]" suppressHydrationWarning>
+              {posterUrl}
             </p>
           </div>
         </div>
@@ -282,6 +306,9 @@ export function TombstoneDetailClient({
         <Button className="mt-3 w-full" variant="secondary" onClick={downloadPoster} disabled={downloadingPoster}>
           <Gift size={17} /> {downloadingPoster ? "Preparing Poster..." : "Download Share Poster"}
         </Button>
+        <a ref={downloadLinkRef} className="sr-only" tabIndex={-1} aria-hidden="true">
+          Download poster
+        </a>
         <LinkButton className="mt-3 w-full sm:hidden" href="/create?team=italy">
           Build Your Own Tombstone
         </LinkButton>
