@@ -1,14 +1,17 @@
 import { Coffee, Database, Flame, Server, Share2 } from "lucide-react";
 import { siteName } from "@/lib/seo";
+import { dictionaries, type Dictionary } from "@/lib/i18n";
 
 const paypalUrl = process.env.NEXT_PUBLIC_PAYPAL_ME_URL?.trim();
-const supportItems = [
-  { label: "Server hosting", icon: Server },
-  { label: "Match data APIs", icon: Database },
-  { label: "Shareable tombstones", icon: Share2 },
-];
+const supportIcons = [Server, Database, Share2];
 
-export function SiteFooter() {
+export function SiteFooter({
+  dictionary = dictionaries.en,
+}: {
+  dictionary?: Dictionary;
+}) {
+  const labels = dictionary.footer;
+
   return (
     <footer className="mt-auto border-t border-white/10 bg-[#10100e]">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -20,14 +23,13 @@ export function SiteFooter() {
                 <span className="grid size-9 place-items-center rounded-sm border border-[var(--gold)]/50 bg-[var(--stone-light)]">
                   <Flame size={16} />
                 </span>
-                Independent football grief department
+                {labels.eyebrow}
               </div>
               <h2 className="mt-5 max-w-2xl text-3xl font-semibold leading-tight text-[var(--foreground)] sm:text-4xl">
-                Keep the Funeral Home online
+                {labels.title}
               </h2>
               <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--muted)]">
-                This site runs on servers, databases, APIs, and irresponsible football grief. If
-                it made you laugh, you can help keep it online by buying us a coffee.
+                {labels.body}
               </p>
             </div>
 
@@ -40,7 +42,7 @@ export function SiteFooter() {
                   target="_blank"
                 >
                   <Coffee size={18} />
-                  Buy us a coffee with PayPal
+                  {labels.paypal}
                 </a>
               ) : (
                 <button
@@ -49,25 +51,25 @@ export function SiteFooter() {
                   type="button"
                 >
                   <Coffee size={18} />
-                  PayPal link coming soon
+                  {labels.paypalSoon}
                 </button>
               )}
               <p className="text-center text-xs text-[var(--muted)] lg:text-left">
-                Support is optional. The football mourning remains free.
+                {labels.supportNote}
               </p>
             </div>
           </div>
 
           <div className="mt-6 grid gap-3 border-t border-white/10 pt-5 sm:grid-cols-3">
-            {supportItems.map((item) => {
-              const Icon = item.icon;
+            {labels.supportItems.map((label, index) => {
+              const Icon = supportIcons[index] ?? Server;
               return (
                 <div
                   className="flex items-center gap-3 rounded-sm border border-white/10 bg-black/20 px-3 py-3 text-sm text-[var(--muted)]"
-                  key={item.label}
+                  key={label}
                 >
                   <Icon className="shrink-0 text-[var(--gold)]" size={16} />
-                  {item.label}
+                  {label}
                 </div>
               );
             })}
@@ -76,7 +78,7 @@ export function SiteFooter() {
 
         <div className="mt-5 flex flex-col justify-between gap-2 text-xs text-[var(--muted)] sm:flex-row">
           <span>{siteName}</span>
-          <span>Built for football pain, shared for free.</span>
+          <span>{labels.built}</span>
         </div>
       </div>
     </footer>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import {
   Flame,
@@ -12,8 +12,17 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
+import {
+  dictionaries,
+  localizeMatch,
+  localizePath,
+  localizeShareHooks,
+  localizeTeam,
+  localizeTombstone,
+  type Dictionary,
+  type Locale,
+} from "@/lib/i18n";
 import type { InteractionType, TombstoneDetails } from "@/lib/types";
-import { getShareHooks } from "@/lib/seed-data";
 import { shareTombstone } from "@/lib/share";
 import {
   sortTributesForDisplay,
@@ -23,18 +32,16 @@ import {
 } from "@/lib/tribute-engagement";
 import { Button, LinkButton, Stat } from "@/components/ui";
 
-const feedback: Record<InteractionType, string> = {
-  flower: "Flowers offered. Dignity for the team. Emotional damage for the fans.",
-  candle: "Candle lit. May they find their way back in 2030.",
-  incense: "Incense burned. May the football gods answer someday.",
-};
-
 export function TombstoneDetailClient({
   id,
   initialDetails,
+  locale = "en",
+  dictionary = dictionaries.en,
 }: {
   id: string;
   initialDetails: TombstoneDetails | null;
+  locale?: Locale;
+  dictionary?: Dictionary;
 }) {
   const [details, setDetails] = useState<TombstoneDetails | null>(initialDetails);
   const [loading, setLoading] = useState(!initialDetails);
@@ -51,6 +58,17 @@ export function TombstoneDetailClient({
   const posterRef = useRef<HTMLDivElement>(null);
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const posterObjectUrlRef = useRef<string | null>(null);
+  const labels = dictionary.detail;
+
+  const localizeDetailsPayload = useCallback((payload: TombstoneDetails | null): TombstoneDetails | null => {
+    if (!payload) return payload;
+    return {
+      ...payload,
+      team: localizeTeam(payload.team, locale),
+      deathMatch: localizeMatch(payload.deathMatch, locale),
+      tombstone: localizeTombstone(payload.tombstone, locale),
+    };
+  }, [locale]);
 
   useEffect(() => {
     const posterUrlFrame = window.requestAnimationFrame(() => {
@@ -60,7 +78,7 @@ export function TombstoneDetailClient({
     fetch(`/api/tombstones/${id}`)
       .then((response) => response.json())
       .then((payload) => {
-        setDetails(payload.tombstone ? payload : initialDetails);
+        setDetails(localizeDetailsPayload(payload.tombstone ? payload : initialDetails));
         setLoading(false);
         if (new URLSearchParams(window.location.search).has("published")) {
           setShowShare(true);
@@ -74,7 +92,7 @@ export function TombstoneDetailClient({
         posterObjectUrlRef.current = null;
       }
     };
-  }, [id, initialDetails]);
+  }, [id, initialDetails, localizeDetailsPayload]);
 
   async function ritual(interactionType: InteractionType) {
     const burstId = Date.now();
@@ -90,11 +108,11 @@ export function TombstoneDetailClient({
     });
     const payload = await response.json();
     if (response.ok) {
-      setDetails(payload);
-      setMessage(feedback[interactionType]);
+      setDetails(localizeDetailsPayload(payload));
+      setMessage(labels.feedback[interactionType]);
       setShowShare(true);
     } else {
-      setMessage(payload.message ?? "The ritual paperwork jammed.");
+      setMessage(payload.message ?? labels.ritualError);
     }
   }
 
@@ -109,13 +127,13 @@ export function TombstoneDetailClient({
     const payload = await response.json();
     setSubmittingTribute(false);
     if (response.ok) {
-      setDetails(payload);
+      setDetails(localizeDetailsPayload(payload));
       setTributeText("");
       setAuthorName("");
-      setMessage("Tribute received. Cheaper than therapy.");
+      setMessage(labels.tributeReceived);
       setShowShare(true);
     } else {
-      setMessage(payload.message ?? "Tribute rejected by the paperwork desk.");
+      setMessage(payload.message ?? labels.tributeRejected);
     }
   }
 
@@ -127,19 +145,19 @@ export function TombstoneDetailClient({
     });
     const payload = await response.json();
     if (response.ok && payload.details) {
-      setDetails(payload.details);
-      setMessage(voteType === "like" ? "Tribute liked." : "Tribute disliked.");
+      setDetails(localizeDetailsPayload(payload.details));
+      setMessage(voteType === "like" ? labels.tributeLiked : labels.tributeDisliked);
     } else {
-      setMessage(payload.message ?? "Vote rejected by the paperwork desk.");
+      setMessage(payload.message ?? labels.voteRejected);
     }
   }
 
   async function reportContent(targetType: "tombstone" | "tribute", targetId: string) {
     const reason = window.prompt(
       targetType === "tombstone"
-        ? "Why should this tombstone be reviewed?"
-        : "Why should this tribute be reviewed?",
-      "Off-topic or inappropriate football funeral content",
+        ? labels.reviewTombstonePrompt
+        : labels.reviewTributePrompt,
+      labels.reviewDefault,
     );
     if (!reason?.trim()) return;
 
@@ -151,8 +169,8 @@ export function TombstoneDetailClient({
     const payload = await response.json();
     setMessage(
       response.ok
-        ? "Report received. The funeral desk will review it."
-        : payload.message ?? "Unable to receive report.",
+        ? labels.reportReceived
+        : payload.message ?? labels.reportFailed,
     );
   }
 
@@ -168,20 +186,20 @@ export function TombstoneDetailClient({
 
     if (result === "shared") {
       setManualShareText("");
-      setMessage("Share sheet opened. Bring more fans to the funeral.");
+      setMessage(labels.shareOpened);
     } else if (result === "copied") {
       setManualShareText("");
-      setMessage("Share hook copied. Bring more fans to the funeral.");
+      setMessage(labels.shareCopied);
     } else {
       setManualShareText(result.text);
-      setMessage("Sharing needs a manual pass in this browser. Copy the text below.");
+      setMessage(labels.shareManual);
     }
   }
 
   async function downloadPoster() {
     if (!posterRef.current || downloadingPoster) return;
     setDownloadingPoster(true);
-    setMessage("Preparing poster...");
+    setMessage(labels.preparingPosterMessage);
     try {
       const dataUrl = await toPng(posterRef.current, {
         pixelRatio: window.innerWidth < 640 ? 1.35 : 2,
@@ -199,68 +217,68 @@ export function TombstoneDetailClient({
       const link = downloadLinkRef.current;
       if (!link) {
         window.open(nextObjectUrl, "_blank", "noopener,noreferrer");
-        setMessage("Poster opened in a new tab. Save the image from there.");
+        setMessage(labels.posterOpened);
         return;
       }
 
       link.download = `${team.slug}-world-cup-funeral-home-poster-${Date.now()}.png`;
       link.href = nextObjectUrl;
       link.click();
-      setMessage("Poster downloaded. You can download it again anytime. If it does not download again, refresh the page and try once more.");
+      setMessage(labels.posterDownloaded);
     } catch {
-      setMessage("Poster download failed. Please try again.");
+      setMessage(labels.posterFailed);
     } finally {
       setDownloadingPoster(false);
     }
   }
 
   if (loading) {
-    return <main className="mx-auto max-w-6xl px-4 py-10">Loading tombstone...</main>;
+    return <main className="mx-auto max-w-6xl px-4 py-10">{labels.loading}</main>;
   }
 
   if (!details) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <h1 className="text-4xl font-semibold">Tombstone not found</h1>
-        <p className="mt-4 text-[var(--muted)]">The paperwork may have been lost in extra time.</p>
-        <LinkButton className="mt-8" href="/">
-          Back to Team Wall
+        <h1 className="text-4xl font-semibold">{labels.notFoundTitle}</h1>
+        <p className="mt-4 text-[var(--muted)]">{labels.notFoundBody}</p>
+        <LinkButton className="mt-8" href={localizePath("/", locale)}>
+          {dictionary.common.backToTeamWall}
         </LinkButton>
       </main>
     );
   }
 
   const { tombstone, team, deathMatch, tributes } = details;
-  const shareHooks = getShareHooks(team.slug);
+  const shareHooks = localizeShareHooks(team.slug, team.name, locale);
   const sortedTributes = sortTributesForDisplay(tributes, tributeSortMode);
 
   return (
     <main className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_0.85fr] lg:px-8">
       <section>
         <div ref={posterRef} className="rounded-md bg-[#171511] p-8 text-center text-[var(--foreground)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--gold)]">World Cup Funeral Home</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--gold)]">{dictionary.common.siteName}</p>
           <div className="realistic-tombstone-scene mt-8">
             <div className="realistic-tombstone">
               <div className="realistic-tombstone-content">
                 <img className="realistic-tombstone-flag flag-image" src={team.flagUrl} alt={`${team.name} flag`} />
-                <p className="engraved-label mt-6">In Loving Memory of</p>
+                <p className="engraved-label mt-6">{dictionary.common.inMemory}</p>
                 <h1 className="engraved-name mt-3">{team.name}</h1>
                 <div className="engraved-rule" />
-                <p className="engraved-label">Cause of Death</p>
+                <p className="engraved-label">{dictionary.common.causeOfDeath}</p>
                 <p className="engraved-copy mt-2 text-xl font-bold">{tombstone.causeOfDeath}</p>
                 <p className="engraved-copy mt-7 text-3xl font-semibold leading-10">“{tombstone.epitaph}”</p>
-                <p className="engraved-label mt-7">Buried by: {tombstone.buriedBy}</p>
+                <p className="engraved-label mt-7">{dictionary.create.buriedBy} {tombstone.buriedBy}</p>
               </div>
             </div>
             <div className="tombstone-base" />
           </div>
           <p className="mx-auto mt-8 max-w-2xl text-sm leading-6 text-[var(--muted)]">{deathMatch.displayText}</p>
           <p className="mt-5 text-lg text-[var(--gold)]">
-            {team.flowerCount + team.candleCount + team.incenseCount + team.tributeCount} fans have already paid their respects.
+            {team.flowerCount + team.candleCount + team.incenseCount + team.tributeCount} {labels.respectsCount}
           </p>
           <div className="mx-auto mt-5 max-w-md rounded-sm border border-[var(--gold)]/35 bg-black/25 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
-              Pay respects here
+              {labels.respectsHere}
             </p>
             <p className="mt-1 break-all font-mono text-xs leading-5 text-[#f6efe1]" suppressHydrationWarning>
               {posterUrl}
@@ -271,7 +289,7 @@ export function TombstoneDetailClient({
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="relative">
             <Button className="w-full" variant="secondary" onClick={() => ritual("flower")}>
-              <Flower2 size={17} /> Offer Flowers
+              <Flower2 size={17} /> {labels.offerFlowers}
             </Button>
             {ritualBurst?.type === "flower" && (
               <span key={ritualBurst.id} className="ritual-plus absolute right-3 top-1/2 text-sm font-bold text-[var(--gold)]">
@@ -281,7 +299,7 @@ export function TombstoneDetailClient({
           </div>
           <div className="relative">
             <Button className="w-full" variant="secondary" onClick={() => ritual("candle")}>
-              <Flame size={17} /> Light a Candle
+              <Flame size={17} /> {labels.lightCandle}
             </Button>
             {ritualBurst?.type === "candle" && (
               <span key={ritualBurst.id} className="ritual-plus absolute right-3 top-1/2 text-sm font-bold text-[var(--gold)]">
@@ -291,7 +309,7 @@ export function TombstoneDetailClient({
           </div>
           <div className="relative">
             <Button className="w-full" variant="secondary" onClick={() => ritual("incense")}>
-              <Sparkles size={17} /> Burn Incense
+              <Sparkles size={17} /> {labels.burnIncense}
             </Button>
             {ritualBurst?.type === "incense" && (
               <span key={ritualBurst.id} className="ritual-plus absolute right-3 top-1/2 text-sm font-bold text-[var(--gold)]">
@@ -300,29 +318,29 @@ export function TombstoneDetailClient({
             )}
           </div>
           <Button onClick={copyShare}>
-            <Share2 size={17} /> Share Tombstone
+            <Share2 size={17} /> {labels.shareTombstone}
           </Button>
         </div>
         <Button className="mt-3 w-full" variant="secondary" onClick={downloadPoster} disabled={downloadingPoster}>
-          <Gift size={17} /> {downloadingPoster ? "Preparing Poster..." : "Download Share Poster"}
+          <Gift size={17} /> {downloadingPoster ? labels.preparingPoster : labels.downloadPoster}
         </Button>
         <a ref={downloadLinkRef} className="sr-only" tabIndex={-1} aria-hidden="true">
-          Download poster
+          {labels.downloadPosterHidden}
         </a>
-        <LinkButton className="mt-3 w-full sm:hidden" href="/create?team=italy">
-          Build Your Own Tombstone
+        <LinkButton className="mt-3 w-full sm:hidden" href={localizePath("/create?team=italy", locale)}>
+          {labels.buildOwn}
         </LinkButton>
         <button
           className="mt-3 text-xs text-[var(--muted)] underline underline-offset-4"
           onClick={() => reportContent("tombstone", tombstone.id)}
         >
-          Report this tombstone
+          {labels.reportTombstone}
         </button>
         {message && <p className="mt-4 rounded-sm border border-white/10 bg-white/5 p-3 text-sm text-[var(--muted)]">{message}</p>}
         {manualShareText && (
           <div className="mt-3 rounded-sm border border-[var(--gold)]/35 bg-[var(--gold)]/10 p-3">
             <label className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--gold)]">
-              Share Text
+              {labels.shareText}
             </label>
             <textarea
               className="mt-2 min-h-20 w-full rounded-sm border border-white/10 bg-black/25 px-3 py-2 text-sm outline-none"
@@ -337,75 +355,75 @@ export function TombstoneDetailClient({
       <aside className="space-y-5">
         {showShare && (
           <div className="stone-panel rounded-md p-5">
-            <h2 className="text-xl font-semibold">The tombstone is ready.</h2>
+            <h2 className="text-xl font-semibold">{labels.readyTitle}</h2>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-              Want to invite other fans to pay their respects?
+              {labels.readyBody}
             </p>
             <div className="mt-4 flex gap-3">
-              <Button onClick={copyShare}>Share</Button>
+              <Button onClick={copyShare}>{labels.share}</Button>
               <Button variant="secondary" onClick={() => setShowShare(false)}>
-                Continue Mourning
+                {labels.continueMourning}
               </Button>
             </div>
           </div>
         )}
 
         <div className="stone-panel hidden rounded-md p-5 sm:block">
-          <h2 className="text-xl font-semibold">Build your own tombstone</h2>
+          <h2 className="text-xl font-semibold">{labels.sidebarBuildTitle}</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Send another fallen team to the Funeral Home.
+            {labels.sidebarBuildBody}
           </p>
-          <LinkButton className="mt-4 w-full" href="/create?team=italy">
-            Build a Tombstone
+          <LinkButton className="mt-4 w-full" href={localizePath("/create?team=italy", locale)}>
+            {dictionary.common.buildTombstone}
           </LinkButton>
         </div>
 
         <div className="stone-panel rounded-md p-5">
-          <h2 className="text-xl font-semibold">This tombstone has received</h2>
+          <h2 className="text-xl font-semibold">{labels.received}</h2>
           <div className="mt-5 grid grid-cols-3 gap-4">
-            <Stat label="Flowers" value={tombstone.flowerCount} />
-            <Stat label="Candles" value={tombstone.candleCount} />
-            <Stat label="Incense" value={tombstone.incenseCount} />
+            <Stat label={dictionary.common.flowers} value={tombstone.flowerCount} />
+            <Stat label={dictionary.common.candles} value={tombstone.candleCount} />
+            <Stat label={dictionary.common.incense} value={tombstone.incenseCount} />
           </div>
         </div>
 
         <div className="stone-panel rounded-md p-5">
-          <h2 className="text-xl font-semibold">Italy-wide mourning stats</h2>
+          <h2 className="text-xl font-semibold">{labels.teamStats}</h2>
           <div className="mt-5 grid grid-cols-2 gap-4">
-            <Stat label="Tombstones" value={team.tombstoneCount} />
-            <Stat label="Flowers" value={team.flowerCount} />
-            <Stat label="Candles" value={team.candleCount} />
-            <Stat label="Incense" value={team.incenseCount} />
+            <Stat label={dictionary.common.tombstones} value={team.tombstoneCount} />
+            <Stat label={dictionary.common.flowers} value={team.flowerCount} />
+            <Stat label={dictionary.common.candles} value={team.candleCount} />
+            <Stat label={dictionary.common.incense} value={team.incenseCount} />
           </div>
         </div>
 
         <div className="stone-panel rounded-md p-5">
           <h2 className="flex items-center gap-2 text-xl font-semibold">
-            <MessageSquare size={20} /> Leave a Tribute
+            <MessageSquare size={20} /> {labels.leaveTribute}
           </h2>
           <textarea
             className="mt-4 min-h-28 w-full rounded-sm border border-white/10 bg-black/25 px-4 py-3 outline-none focus:border-[var(--gold)]"
             maxLength={160}
-            placeholder="Write something painful, funny, or emotionally unstable..."
+            placeholder={labels.tributePlaceholder}
             value={tributeText}
             onChange={(event) => setTributeText(event.target.value)}
           />
           <input
             className="mt-3 w-full rounded-sm border border-white/10 bg-black/25 px-4 py-3 outline-none focus:border-[var(--gold)]"
             maxLength={30}
-            placeholder="Your name or Anonymous Fan"
+            placeholder={labels.authorPlaceholder}
             value={authorName}
             onChange={(event) => setAuthorName(event.target.value)}
           />
-          <p className="mt-2 text-xs text-[var(--muted)]">Keep it about football trauma. Don’t attack real people.</p>
+          <p className="mt-2 text-xs text-[var(--muted)]">{labels.tributeHint}</p>
           <Button className="mt-4 w-full" onClick={leaveTribute} disabled={!tributeText.trim() || submittingTribute}>
-            {submittingTribute ? "Sending..." : "Leave a Tribute"}
+            {submittingTribute ? labels.sending : labels.leaveTribute}
           </Button>
         </div>
 
         <div className="stone-panel rounded-md p-5">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-            <h2 className="text-xl font-semibold">Tribute Wall</h2>
+            <h2 className="text-xl font-semibold">{labels.tributeWall}</h2>
             <div className="grid grid-cols-2 rounded-sm border border-white/10 bg-black/20 p-1 text-xs">
               {(["hot", "newest"] as TributeSortMode[]).map((mode) => (
                 <button
@@ -417,7 +435,7 @@ export function TombstoneDetailClient({
                   }`}
                   onClick={() => setTributeSortMode(mode)}
                 >
-                  {mode === "hot" ? "Hot" : "Newest"}
+                  {mode === "hot" ? labels.hot : labels.newest}
                 </button>
               ))}
             </div>
@@ -428,8 +446,8 @@ export function TombstoneDetailClient({
                 <div key={tribute.id} className="rounded-sm border border-white/10 bg-white/[0.03] p-3">
                   <p className="text-sm leading-6">“{tribute.tributeText}”</p>
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">By {tribute.authorName}</p>
-                    <p className="font-mono text-xs text-[var(--muted)]">Score {tributeScore(tribute)}</p>
+                    <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{labels.by} {tribute.authorName}</p>
+                    <p className="font-mono text-xs text-[var(--muted)]">{labels.score} {tributeScore(tribute)}</p>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
@@ -448,13 +466,13 @@ export function TombstoneDetailClient({
                       className="px-2 py-1 text-xs text-[var(--muted)] underline underline-offset-4"
                       onClick={() => reportContent("tribute", tribute.id)}
                     >
-                      Report
+                      {labels.report}
                     </button>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-[var(--muted)]">No tributes yet. Everyone is still staring at the qualification table.</p>
+              <p className="text-sm text-[var(--muted)]">{labels.noTributes}</p>
             )}
           </div>
         </div>

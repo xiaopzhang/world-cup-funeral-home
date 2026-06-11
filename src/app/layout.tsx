@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import { SiteFooter } from "@/components/site-footer";
+import { defaultLocale, dictionaries, isLocale, type Locale } from "@/lib/i18n";
 import { defaultDescription, siteName, siteUrl } from "@/lib/seo";
 import "./globals.css";
 
@@ -73,20 +75,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const requestHeaders = await headers();
+  const headerLocale = requestHeaders.get("x-worldcup-locale") ?? defaultLocale;
+  const locale: Locale = isLocale(headerLocale) ? headerLocale : defaultLocale;
+  const dictionary = dictionaries[locale];
+
   return (
     <html
-      lang="en"
+      lang={locale === "zh" ? "zh-CN" : locale}
       data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <SiteFooter />
+        <SiteFooter dictionary={dictionary} />
         <Analytics />
       </body>
     </html>

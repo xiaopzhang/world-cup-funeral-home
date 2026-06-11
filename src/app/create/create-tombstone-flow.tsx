@@ -3,12 +3,11 @@
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, ScrollText } from "lucide-react";
+import { dictionaries, localizeContentPack, localizePath, type Dictionary, type Locale } from "@/lib/i18n";
 import { getTeamContentPack } from "@/lib/seed-data";
 import type { Team, TeamContentPack } from "@/lib/types";
 import { validateRequiredSignature, validateUserText } from "@/lib/validation";
 import { Button, LinkButton } from "@/components/ui";
-
-const steps = ["Choose Team", "Cause", "Epitaph", "Preview"];
 
 type FieldErrors = {
   buriedBy?: string;
@@ -17,17 +16,23 @@ type FieldErrors = {
 export function CreateTombstoneFlow({
   playableTeams,
   contentByTeam,
+  locale = "en",
+  dictionary = dictionaries.en,
 }: {
   playableTeams: Team[];
   contentByTeam: Record<string, TeamContentPack>;
+  locale?: Locale;
+  dictionary?: Dictionary;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const labels = dictionary.create;
+  const steps = labels.steps;
   const fallbackTeam = playableTeams[0]?.slug ?? "italy";
   const requestedTeam = searchParams.get("team") ?? fallbackTeam;
   const initialTeam =
     playableTeams.some((team) => team.slug === requestedTeam) ? requestedTeam : fallbackTeam;
-  const initialContent = contentByTeam[initialTeam] ?? getTeamContentPack(initialTeam);
+  const initialContent = contentByTeam[initialTeam] ?? localizeContentPack(getTeamContentPack(initialTeam), locale);
   const [step, setStep] = useState(0);
   const [teamSlug, setTeamSlug] = useState(initialTeam);
   const [cause, setCause] = useState(initialContent.causes[0]?.text ?? "");
@@ -44,8 +49,8 @@ export function CreateTombstoneFlow({
     [playableTeams, teamSlug],
   );
   const selectedContent = useMemo(
-    () => contentByTeam[teamSlug] ?? getTeamContentPack(teamSlug),
-    [contentByTeam, teamSlug],
+    () => contentByTeam[teamSlug] ?? localizeContentPack(getTeamContentPack(teamSlug), locale),
+    [contentByTeam, locale, teamSlug],
   );
   const genericCauseOptions = selectedContent.causes.filter((item) => !item.isTeamSpecific);
   const teamCauseOptions = selectedContent.causes.filter((item) => item.isTeamSpecific);
@@ -56,7 +61,7 @@ export function CreateTombstoneFlow({
   const buriedByHasError = Boolean(fieldErrors.buriedBy);
 
   function chooseTeam(slug: string) {
-    const nextContent = contentByTeam[slug] ?? getTeamContentPack(slug);
+    const nextContent = contentByTeam[slug] ?? localizeContentPack(getTeamContentPack(slug), locale);
     setTeamSlug(slug);
     setCause(nextContent.causes[0]?.text ?? "");
     setEpitaph(nextContent.epitaphs[0]?.text ?? "");
@@ -68,7 +73,7 @@ export function CreateTombstoneFlow({
     setError("");
     setFieldErrors({});
     if (!selectedTeam?.isPlayable) {
-      setError("This team is still alive. Funeral paperwork is not accepted yet.");
+      setError(labels.aliveError);
       return false;
     }
 
@@ -143,23 +148,23 @@ export function CreateTombstoneFlow({
     setPublishing(false);
 
     if (!response.ok) {
-      setError(payload.message ?? "Unable to publish tombstone.");
+      setError(payload.message ?? labels.publishError);
       return;
     }
 
-    router.push(`/tombstone/${payload.tombstone.shareSlug}?published=1`);
+    router.push(localizePath(`/tombstone/${payload.tombstone.shareSlug}?published=1`, locale));
   }
 
   if (!selectedTeam) {
     return (
       <div className="stone-panel rounded-md p-8 text-center">
-        <h1 className="text-3xl font-semibold">No team is ready for burial.</h1>
+        <h1 className="text-3xl font-semibold">{labels.noTeamTitle}</h1>
         <p className="mt-3 text-[var(--muted)]">
-          The Funeral Home opens when a team has been eliminated.
+          {labels.noTeamBody}
         </p>
         <div className="mt-6">
-          <LinkButton href="/" variant="secondary">
-            Back to Team Wall
+          <LinkButton href={localizePath("/", locale)} variant="secondary">
+            {dictionary.common.backToTeamWall}
           </LinkButton>
         </div>
       </div>
@@ -170,20 +175,20 @@ export function CreateTombstoneFlow({
     <div>
       <div className="mb-8 flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-semibold">Build a Tombstone</h1>
+          <h1 className="text-4xl font-semibold">{labels.title}</h1>
           <p className="mt-3 text-[var(--muted)]">
-            Choose a fallen team. Pick the cause. Carve the epitaph. Sign the stone.
+            {labels.intro}
           </p>
         </div>
-        <LinkButton href="/" variant="secondary">
-          Back to Team Wall
+        <LinkButton href={localizePath("/", locale)} variant="secondary">
+          {dictionary.common.backToTeamWall}
         </LinkButton>
       </div>
 
       <div className="mb-5 rounded-sm border border-white/10 bg-white/[0.03] p-3 sm:hidden">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
-            Step {step + 1} of {steps.length}
+            {locale === "zh" ? `${labels.stepCounter}${step + 1}${labels.of}${steps.length}` : `${labels.stepCounter} ${step + 1} ${labels.of} ${steps.length}`}
           </p>
           <p className="text-sm font-semibold text-[var(--gold)]">{steps[step]}</p>
         </div>
@@ -217,7 +222,7 @@ export function CreateTombstoneFlow({
       <section className="stone-panel rounded-md p-5 sm:p-8">
         {step === 0 && (
           <div>
-            <h2 className="text-2xl font-semibold">Choose Team</h2>
+            <h2 className="text-2xl font-semibold">{steps[0]}</h2>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {playableTeams.map((team) => (
                   <button
@@ -234,7 +239,7 @@ export function CreateTombstoneFlow({
                     />
                     <h3 className="mt-4 text-xl font-semibold">{team.name}</h3>
                     <p className="mt-2 text-sm text-[var(--muted)]">
-                      The Funeral Home is open.
+                      {labels.teamOpen}
                     </p>
                   </button>
               ))}
@@ -244,11 +249,11 @@ export function CreateTombstoneFlow({
 
         {step === 1 && (
           <div>
-            <h2 className="text-2xl font-semibold">Choose a Cause of Death</h2>
-            <p className="mt-2 text-[var(--muted)]">Pick one from the official paperwork, or write your own.</p>
+            <h2 className="text-2xl font-semibold">{labels.causeTitle}</h2>
+            <p className="mt-2 text-[var(--muted)]">{labels.causeBody}</p>
             <div className="mt-6">
               <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                Generic Causes
+                {labels.genericCauses}
               </h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {genericCauseOptions.map((item) => (
@@ -271,7 +276,7 @@ export function CreateTombstoneFlow({
             </div>
             <div className="mt-7">
               <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
-                {selectedTeam.name} Paperwork
+                {selectedTeam.name} {labels.teamPaperwork}
               </h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {teamCauseOptions.map((item) => (
@@ -295,18 +300,18 @@ export function CreateTombstoneFlow({
             <input
               className="mt-5 w-full rounded-sm border border-white/10 bg-black/25 px-4 py-3 outline-none focus:border-[var(--gold)]"
               maxLength={80}
-              placeholder="Write a more painful cause of death..."
+              placeholder={labels.customCause}
               value={customCause}
               onChange={(event) => setCustomCause(event.target.value)}
             />
-            <p className="mt-2 text-sm text-[var(--muted)]">Be funny. Be cruel to the football. Not to real people.</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">{labels.causeHint}</p>
           </div>
         )}
 
         {step === 2 && (
           <div>
-            <h2 className="text-2xl font-semibold">Choose an Epitaph</h2>
-            <p className="mt-2 text-[var(--muted)]">Pick a final line, or carve your own.</p>
+            <h2 className="text-2xl font-semibold">{labels.epitaphTitle}</h2>
+            <p className="mt-2 text-[var(--muted)]">{labels.epitaphBody}</p>
             <div className="mt-6 grid gap-3">
               {epitaphOptions.map((item) => (
                 <button
@@ -328,7 +333,7 @@ export function CreateTombstoneFlow({
             <textarea
               className="mt-5 min-h-28 w-full rounded-sm border border-white/10 bg-black/25 px-4 py-3 outline-none focus:border-[var(--gold)]"
               maxLength={120}
-              placeholder="Write the final line this team deserves..."
+              placeholder={labels.customEpitaph}
               value={customEpitaph}
               onChange={(event) => setCustomEpitaph(event.target.value)}
             />
@@ -340,7 +345,7 @@ export function CreateTombstoneFlow({
                   : "border-white/10 focus:border-[var(--gold)]"
               }`}
               maxLength={30}
-              placeholder="Your name or nickname"
+              placeholder={labels.signature}
               value={buriedBy}
               onChange={(event) => {
                 setBuriedBy(event.target.value);
@@ -350,13 +355,13 @@ export function CreateTombstoneFlow({
                 }
               }}
             />
-            <p className="mt-2 text-sm text-[var(--muted)]">Required. Keep it about football trauma. Don’t attack real people.</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">{labels.signatureHint}</p>
           </div>
         )}
 
         {step === 3 && (
           <div>
-            <h2 className="text-2xl font-semibold">Preview Tombstone</h2>
+            <h2 className="text-2xl font-semibold">{labels.previewTitle}</h2>
             <div className="realistic-tombstone-scene mt-8">
               <div className="realistic-tombstone">
                 <div className="realistic-tombstone-content">
@@ -365,13 +370,13 @@ export function CreateTombstoneFlow({
                     src={selectedTeam.flagUrl}
                     alt={`${selectedTeam.name} flag`}
                   />
-                  <p className="engraved-label mt-6">In Loving Memory of</p>
+                  <p className="engraved-label mt-6">{dictionary.common.inMemory}</p>
                   <h3 className="engraved-name mt-3">{selectedTeam.name}</h3>
                   <div className="engraved-rule" />
-                  <p className="engraved-label">Cause of Death</p>
+                  <p className="engraved-label">{dictionary.common.causeOfDeath}</p>
                   <p className="engraved-copy mt-2 text-xl font-bold">{finalCause}</p>
                   <p className="engraved-copy mt-7 text-2xl font-semibold leading-8">“{finalEpitaph}”</p>
-                  <p className="engraved-label mt-7">Buried by: {finalBuriedBy}</p>
+                  <p className="engraved-label mt-7">{labels.buriedBy} {finalBuriedBy}</p>
                 </div>
               </div>
               <div className="tombstone-base" />
@@ -383,15 +388,15 @@ export function CreateTombstoneFlow({
 
         <div className="mt-8 flex flex-col justify-between gap-3 sm:flex-row">
           <Button variant="secondary" disabled={step === 0} onClick={() => setStep((value) => Math.max(value - 1, 0))}>
-            <ArrowLeft size={16} /> Edit
+            <ArrowLeft size={16} /> {labels.edit}
           </Button>
           {step < steps.length - 1 ? (
             <Button onClick={next}>
-              Continue <ArrowRight size={16} />
+              {labels.continue} <ArrowRight size={16} />
             </Button>
           ) : (
             <Button onClick={publish} disabled={publishing}>
-              {publishing ? "Publishing..." : "Publish Tombstone"} <Check size={16} />
+              {publishing ? labels.publishing : labels.publish} <Check size={16} />
             </Button>
           )}
         </div>
@@ -399,7 +404,7 @@ export function CreateTombstoneFlow({
 
       <div className="mt-6 flex items-center gap-2 text-sm text-[var(--muted)]">
         <ScrollText size={16} />
-        No links. No hate speech. No attacks on real people. Just football pain in a nice stone jacket.
+        {labels.guardrail}
       </div>
     </div>
   );
