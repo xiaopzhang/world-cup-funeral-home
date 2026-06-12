@@ -1,15 +1,16 @@
+"use client";
+
 import { Coffee, Database, Flame, Server, Share2 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { siteName } from "@/lib/seo";
-import { dictionaries, type Dictionary } from "@/lib/i18n";
+import { getDictionaryForPathname } from "@/lib/i18n";
 
 const paypalUrl = process.env.NEXT_PUBLIC_PAYPAL_ME_URL?.trim();
 const supportIcons = [Server, Database, Share2];
 
-export function SiteFooter({
-  dictionary = dictionaries.en,
-}: {
-  dictionary?: Dictionary;
-}) {
+export function SiteFooter() {
+  const pathname = usePathname();
+  const dictionary = getDictionaryForPathname(pathname);
   const labels = dictionary.footer;
 
   return (

@@ -14,6 +14,10 @@ export function getLocaleFromPathname(pathname: string): Locale {
   return segment && isLocale(segment) ? segment : defaultLocale;
 }
 
+export function getDictionaryForPathname(pathname: string): Dictionary {
+  return dictionaries[getLocaleFromPathname(pathname)];
+}
+
 export function stripLocalePrefix(pathname: string) {
   const parts = pathname.split("/");
   const firstSegment = parts[1];

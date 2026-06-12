@@ -3,7 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import { SiteFooter } from "@/components/site-footer";
-import { defaultLocale, dictionaries, isLocale, type Locale } from "@/lib/i18n";
+import { defaultLocale, isLocale, type Locale } from "@/lib/i18n";
 import { defaultDescription, siteName, siteUrl } from "@/lib/seo";
 import "./globals.css";
 
@@ -83,7 +83,6 @@ export default async function RootLayout({
   const requestHeaders = await headers();
   const headerLocale = requestHeaders.get("x-worldcup-locale") ?? defaultLocale;
   const locale: Locale = isLocale(headerLocale) ? headerLocale : defaultLocale;
-  const dictionary = dictionaries[locale];
 
   return (
     <html
@@ -93,7 +92,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <SiteFooter dictionary={dictionary} />
+        <SiteFooter />
         <Analytics />
       </body>
     </html>

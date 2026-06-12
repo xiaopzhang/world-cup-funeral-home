@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dictionaries,
+  getDictionaryForPathname,
   getLocaleFromPathname,
   localizeContentPack,
   localizeMatch,
@@ -31,6 +32,12 @@ describe("i18n routing", () => {
     expect(getLocaleFromPathname("/create")).toBe("en");
     expect(dictionaries.es.header.feed).toBe("Últimos entierros");
     expect(dictionaries.zh.header.create).toBe("立墓碑");
+  });
+
+  it("selects the dictionary from the current pathname for persistent shell UI", () => {
+    expect(getDictionaryForPathname("/es/feed").footer.title).toBe("Mantén abierta la funeraria");
+    expect(getDictionaryForPathname("/zh").footer.title).toBe("让世界杯殡仪馆继续营业");
+    expect(getDictionaryForPathname("/").footer.title).toBe("Keep the Funeral Home online");
   });
 
   it("localizes prepared team names, causes, epitaphs, and match copy", () => {
