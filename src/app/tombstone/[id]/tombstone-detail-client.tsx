@@ -248,7 +248,7 @@ export function TombstoneDetailClient({
     );
   }
 
-  const { tombstone, team, deathMatch, tributes } = details;
+  const { tombstone, team, tributes } = details;
   const shareHooks = localizeShareHooks(team.slug, team.name, locale);
   const sortedTributes = sortTributesForDisplay(tributes, tributeSortMode);
 
@@ -272,7 +272,6 @@ export function TombstoneDetailClient({
             </div>
             <div className="tombstone-base" />
           </div>
-          <p className="mx-auto mt-8 max-w-2xl text-sm leading-6 text-[var(--muted)]">{deathMatch.displayText}</p>
           <p className="mt-5 text-lg text-[var(--gold)]">
             {team.flowerCount + team.candleCount + team.incenseCount + team.tributeCount} {labels.respectsCount}
           </p>
