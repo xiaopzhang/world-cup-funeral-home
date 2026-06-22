@@ -14,6 +14,16 @@ export function TeamCard({
 }) {
   const playable = team.isPlayable;
   const labels = dictionary.teamCard;
+  const statusLabel =
+    team.status === "early_admission"
+      ? labels.earlyAdmission
+      : team.status === "eliminated"
+        ? labels.eliminated
+        : labels.alive;
+  const statusClass =
+    team.status === "alive" || team.status === "pending"
+      ? "border-white/10 text-[var(--muted)]"
+      : "border-[var(--gold)]/50 bg-[var(--gold)]/12 text-[var(--gold)]";
 
   return (
     <article className="stone-panel flex min-h-[260px] flex-col rounded-md p-4">
@@ -23,15 +33,9 @@ export function TeamCard({
           src={team.flagUrl}
           alt={`${team.name} flag`}
         />
-        {team.status === "early_admission" ? (
-          <span className="rounded-sm border border-[var(--gold)]/50 bg-[var(--gold)]/12 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--gold)]">
-            {labels.earlyAdmission}
-          </span>
-        ) : (
-          <span className="rounded-sm border border-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
-            {labels.alive}
-          </span>
-        )}
+        <span className={`rounded-sm border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${statusClass}`}>
+          {statusLabel}
+        </span>
       </div>
       <div className="mt-5 flex-1">
         <h3 className="text-xl font-semibold">{team.name}</h3>

@@ -666,6 +666,7 @@ export const dictionaries = {
     },
     teamCard: {
       earlyAdmission: "Early Admission",
+      eliminated: "Eliminated",
       alive: "Still alive",
       playable: "Arrived early. Not at the World Cup. At the Funeral Home.",
       unavailable: "Not admitted yet. This team is still alive.",
@@ -827,6 +828,7 @@ export const dictionaries = {
     },
     teamCard: {
       earlyAdmission: "Ingreso anticipado",
+      eliminated: "Eliminada",
       alive: "Sigue viva",
       playable: "Llegó temprano. No al Mundial. A la funeraria.",
       unavailable: "Aún no admitida. Esta selección sigue viva.",
@@ -988,6 +990,7 @@ export const dictionaries = {
     },
     teamCard: {
       earlyAdmission: "提前入住",
+      eliminated: "已淘汰",
       alive: "还活着",
       playable: "来早了。不是去世界杯，是来殡仪馆。",
       unavailable: "暂未接收。这支球队还活着。",
