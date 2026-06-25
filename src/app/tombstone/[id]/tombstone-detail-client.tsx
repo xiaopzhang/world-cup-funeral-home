@@ -326,7 +326,7 @@ export function TombstoneDetailClient({
         <a ref={downloadLinkRef} className="sr-only" tabIndex={-1} aria-hidden="true">
           {labels.downloadPosterHidden}
         </a>
-        <LinkButton className="mt-3 w-full sm:hidden" href={localizePath("/create?team=italy", locale)}>
+        <LinkButton className="mt-3 w-full sm:hidden" href={localizePath("/create", locale)}>
           {labels.buildOwn}
         </LinkButton>
         <button
@@ -372,7 +372,7 @@ export function TombstoneDetailClient({
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
             {labels.sidebarBuildBody}
           </p>
-          <LinkButton className="mt-4 w-full" href={localizePath("/create?team=italy", locale)}>
+          <LinkButton className="mt-4 w-full" href={localizePath("/create", locale)}>
             {dictionary.common.buildTombstone}
           </LinkButton>
         </div>

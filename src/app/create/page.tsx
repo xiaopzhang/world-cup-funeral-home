@@ -10,7 +10,7 @@ import { CreateTombstoneFlow } from "./create-tombstone-flow";
 export const metadata: Metadata = pageMetadata({
   title: "Build a Tombstone",
   description:
-    "Create a shareable World Cup Funeral Home tombstone for Italy and future eliminated football teams.",
+    "Create a shareable World Cup Funeral Home tombstone for eliminated World Cup teams.",
   path: "/create",
 });
 

@@ -1,6 +1,5 @@
 import { Activity, Flower2, Flame, ScrollText } from "lucide-react";
 import { getHomeSnapshot } from "@/lib/repository";
-import { teams as seededTeams } from "@/lib/seed-data";
 import { SiteHeader } from "@/components/site-header";
 import { TeamCard } from "@/components/team-card";
 import { TombstoneCard } from "@/components/tombstone-card";
@@ -14,12 +13,35 @@ export default async function Home() {
   return <HomePage locale="en" />;
 }
 
+function formatHomeCopy(template: string, values: Record<string, string | number>) {
+  return Object.entries(values).reduce(
+    (text, [key, value]) => text.replaceAll(`{${key}}`, String(value)),
+    template,
+  );
+}
+
 export async function HomePage({ locale }: { locale: Locale }) {
   const dictionary = dictionaries[locale];
   const snapshot = await getHomeSnapshot();
   const teams = snapshot.teams.map((team) => localizeTeam(team, locale));
-  const italy = teams.find((team) => team.slug === "italy")!;
   const latest = snapshot.latestTombstones.map((tombstone) => localizeTombstone(tombstone, locale));
+  const teamsBySlug = new Map(teams.map((team) => [team.slug, team]));
+  const playableTeams = teams.filter((team) => team.isPlayable);
+  const featuredTeam =
+    [...playableTeams].sort((teamA, teamB) => {
+      if (teamA.status !== teamB.status) {
+        if (teamA.status === "eliminated") return -1;
+        if (teamB.status === "eliminated") return 1;
+      }
+      const teamATime = teamA.eliminatedAt ? new Date(teamA.eliminatedAt).getTime() : 0;
+      const teamBTime = teamB.eliminatedAt ? new Date(teamB.eliminatedAt).getTime() : 0;
+      if (teamATime !== teamBTime) return teamBTime - teamATime;
+      if (teamA.tombstoneCount !== teamB.tombstoneCount) return teamB.tombstoneCount - teamA.tombstoneCount;
+      return teamA.name.localeCompare(teamB.name);
+    })[0] ?? teamsBySlug.get("italy") ?? teams[0];
+  const featuredTombstone = latest.find((tombstone) => tombstone.teamSlug === featuredTeam?.slug);
+  const aliveCount = teams.filter((team) => team.status === "alive").length;
+  const fallenCount = teams.filter((team) => team.isPlayable).length;
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -53,7 +75,7 @@ export async function HomePage({ locale }: { locale: Locale }) {
               {dictionary.home.heroNote}
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <LinkButton href={localizePath("/create?team=italy", locale)}>{dictionary.common.buildTombstone}</LinkButton>
+              <LinkButton href={localizePath(featuredTeam ? `/create?team=${featuredTeam.slug}` : "/create", locale)}>{dictionary.common.buildTombstone}</LinkButton>
               <LinkButton href={localizePath("/feed", locale)} variant="secondary">
                 {dictionary.home.viewLatest}
               </LinkButton>
@@ -64,19 +86,25 @@ export async function HomePage({ locale }: { locale: Locale }) {
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--green)] via-white to-[var(--red)]" />
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold)]">{dictionary.home.earlyAdmission}</p>
-                <h2 className="mt-2 text-3xl font-semibold">{dictionary.home.italyHere}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold)]">
+                  {featuredTeam?.status === "early_admission" ? dictionary.home.earlyAdmission : dictionary.home.featuredBadge}
+                </p>
+                <h2 className="mt-2 text-3xl font-semibold">
+                  {formatHomeCopy(dictionary.home.featuredTitle, { team: featuredTeam?.name ?? dictionary.common.siteName })}
+                </h2>
               </div>
-              <img className="flag-image h-16 w-24 rounded-sm ring-1 ring-white/20" src={italy.flagUrl} alt={dictionary.common.italyFlag} />
+              {featuredTeam && (
+                <img className="flag-image h-16 w-24 rounded-sm ring-1 ring-white/20" src={featuredTeam.flagUrl} alt={`${featuredTeam.name} flag`} />
+              )}
             </div>
             <div className="realistic-tombstone-scene mt-5">
               <div className="realistic-tombstone max-w-sm">
                 <div className="realistic-tombstone-content !px-7 !pb-8 !pt-16">
                   <p className="engraved-label">{dictionary.common.inMemory}</p>
-                  <p className="engraved-name mt-3 !text-5xl">ITALY</p>
+                  <p className="engraved-name mt-3 !text-5xl">{featuredTeam?.name ?? "TBD"}</p>
                   <div className="engraved-rule" />
                   <p className="engraved-copy text-base leading-6">
-                    {dictionary.home.italyEpitaph}
+                    {featuredTombstone?.epitaph ?? dictionary.home.featuredFallbackEpitaph}
                   </p>
                 </div>
               </div>
@@ -84,10 +112,10 @@ export async function HomePage({ locale }: { locale: Locale }) {
               <p className="mt-5 text-xs uppercase tracking-[0.2em] text-[var(--gold)]">{dictionary.home.paperwork}</p>
             </div>
             <div className="mt-7 grid grid-cols-4 gap-3">
-              <Stat label={dictionary.common.tombs} value={italy.tombstoneCount} />
-              <Stat label={dictionary.common.flowers} value={italy.flowerCount} />
-              <Stat label={dictionary.common.candles} value={italy.candleCount} />
-              <Stat label={dictionary.common.incense} value={italy.incenseCount} />
+              <Stat label={dictionary.common.tombs} value={featuredTeam?.tombstoneCount ?? 0} />
+              <Stat label={dictionary.common.flowers} value={featuredTeam?.flowerCount ?? 0} />
+              <Stat label={dictionary.common.candles} value={featuredTeam?.candleCount ?? 0} />
+              <Stat label={dictionary.common.incense} value={featuredTeam?.incenseCount ?? 0} />
             </div>
           </div>
         </Section>
@@ -97,7 +125,7 @@ export async function HomePage({ locale }: { locale: Locale }) {
             <div>
               <h2 className="text-3xl font-semibold">{dictionary.home.wallTitle}</h2>
               <p className="mt-3 max-w-2xl text-[var(--muted)]">
-                {seededTeams.length - 1} {dictionary.home.wallBody}
+                {formatHomeCopy(dictionary.home.wallBody, { alive: aliveCount, fallen: fallenCount })}
               </p>
             </div>
             <div className="flex gap-4 text-sm text-[var(--muted)]">
@@ -131,7 +159,13 @@ export async function HomePage({ locale }: { locale: Locale }) {
           {latest.length ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {latest.map((tombstone) => (
-                <TombstoneCard key={tombstone.id} tombstone={tombstone} team={italy} locale={locale} dictionary={dictionary} />
+                <TombstoneCard
+                  key={tombstone.id}
+                  tombstone={tombstone}
+                  team={teamsBySlug.get(tombstone.teamSlug) ?? featuredTeam ?? teams[0]}
+                  locale={locale}
+                  dictionary={dictionary}
+                />
               ))}
             </div>
           ) : (

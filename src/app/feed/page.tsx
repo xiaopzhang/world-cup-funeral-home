@@ -52,7 +52,7 @@ export async function FeedPageContent({ locale }: { locale: Locale }) {
                 {dictionary.feed.boardBody}
               </p>
             </div>
-            <LinkButton href={localizePath("/create?team=italy", locale)}>{dictionary.common.buildTombstone}</LinkButton>
+            <LinkButton href={localizePath("/create", locale)}>{dictionary.common.buildTombstone}</LinkButton>
           </div>
 
           <div className="mt-10 space-y-3">

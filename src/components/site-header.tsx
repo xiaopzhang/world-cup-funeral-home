@@ -22,7 +22,7 @@ export function SiteHeader({
   const homeHref = localizePath("/", locale);
   const teamWallHref = localizePath("/#team-wall", locale);
   const feedHref = localizePath("/feed", locale);
-  const createHref = localizePath("/create?team=italy", locale);
+  const createHref = localizePath("/create", locale);
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[#10100e]/88 backdrop-blur">

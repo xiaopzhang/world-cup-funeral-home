@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     "soccer",
     "fan memorial",
     "World Cup 2026",
-    "Italy football",
+    "eliminated teams",
     "football satire",
   ],
   authors: [{ name: siteName }],
